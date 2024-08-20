@@ -1,0 +1,29 @@
+sudo apt update
+sudo apt upgrade
+sudo shutdown -h now (or sudo halt)
+sudo shutdown -r now (or sudo reboot)
+shutdown -h 01:22
+poweroff
+date
+
+sudo apt install xrdp
+sudo systemctl status xrdp
+sudo systemctl start xrdp
+sudo apt-get install tightvncserver
+sudo gpasswd -d {} video
+sudo gpasswd -d {} render
+
+ssh rasp1@rasp1.local
+ssh rasp1@192.
+ssh fly@192.
+ssh fly@raspberrypiFLY1.local
+hostname -I
+sudo passwd fly
+vcgencmd measure_temp
+vcgencmd get_mem arm && vcgencmd get_mem gpu
+logout 192.
+
+ping 192.
+ipconfig /all
+
+i2cdetect -y 1
