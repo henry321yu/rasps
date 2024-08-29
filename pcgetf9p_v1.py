@@ -42,7 +42,7 @@ def parse_nmea_sentence(nmea_sentence):
             lon = convert_to_decimal_degrees(lon, lon_dir)
 
             # 格式化時間
-            formatted_time = f"{hours:02}:{minutes:02}:{seconds:05.2f}"
+            formatted_time = f"{hours:02}:{minutes:02}:{seconds:05.1f}"
 
             return formatted_time, lat, lon, altitude, gps_mode
         except (ValueError, IndexError):
@@ -78,8 +78,8 @@ baud_rate = 9600  # 默認的通訊速率為9600
 timeout = 1  # 設定超時為1秒
 
 # 設定目標座標
-target_lat = 22.9974118333  # 目標經度，例如台北101
-target_lon = 120.2217880000  # 目標緯度
+target_lat = 22.997489859  # 目標經度 高 68.7781m 離base約2m
+target_lon = 120.221698592  # 目標緯度 #base 22.99748363 120.221716942 68.7752
 
 # 開啟串口
 ser = serial.Serial(port, baud_rate, timeout=timeout)
@@ -96,7 +96,7 @@ try:
             time_utc, lat, lon, altitude, gps_mode = result
             # 計算與目標座標的距離誤差
             distance_error = calculate_distance(lat, lon, target_lat, target_lon)
-            print(f"{time_utc}, lat: {lat:.10f}, lon: {lon:.10f}, alt: {altitude:.2f} m, mode: {gps_mode}, bia: {distance_error:.2f} m")
+            print(f"{time_utc}, lat: {lat:.10f}, lon: {lon:.10f}, alt: {altitude:.2f} m, mode: {gps_mode}, bia: {distance_error:.4f} m")
         
 except KeyboardInterrupt:
     print("程式終止")
