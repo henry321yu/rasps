@@ -42,7 +42,7 @@ def parse_nmea_sentence(nmea_sentence):
             lon = convert_to_decimal_degrees(lon, lon_dir)
 
             # 格式化時間
-            formatted_time = f"{hours:02}:{minutes:02}:{seconds:05.1f} UTC"
+            formatted_time = f"{hours:02}:{minutes:02}:{seconds:05.1f}"
 
             return formatted_time, lat, lon, altitude, gps_mode
         except (ValueError, IndexError):
