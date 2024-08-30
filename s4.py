@@ -130,13 +130,13 @@ def parse_nmea_sentence(nmea_sentence):
 def interpret_gps_mode(gps_quality):
     # 解析GPS模式
     modes = {
-        0: "Invalid",
-        1: "GPS Fix",
-        2: "DGPS Fix",
-        4: "RTK Fixed",
-        5: "RTK Float"
+        0: 0,  # Invalid
+        1: 1,  # GPS Fix
+        2: 2,  # DGPS Fix
+        4: 4,  # RTK Fixed
+        5: 5   # RTK Float
     }
-    return modes.get(gps_quality, "Unknown")
+    return modes.get(gps_quality, -1)  # -1 代表未知的模式
 
 def convert_to_decimal_degrees(value, direction):
     # 轉換NMEA格式的度分（ddmm.mmmm）到十進位格式
@@ -253,15 +253,15 @@ while True:
         msg += str(round(temp, num))
         msg += '\t'
         msg += str(round(f, num))
-        msg += '\t'
-        msg += network
+#         msg += '\t'
+#         msg += network
         msg += '\n'
 
         try:
             s.send(bytes(msg, "utf-8"))
             network="connected"
         except (socket.error, BrokenPipeError):
-    #         print("Network error, attempting to reconnect...")
+#             print("Network error, attempting to reconnect...")
             s.close()
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
@@ -269,9 +269,9 @@ while True:
                 s.connect((HOST, PORT))
                 s.settimmeout(None)
                 delay-=0.005
-    #             print("Reconnected.")
+#                 print("Reconnected.")
             except socket.error as e:
-    #             print(f"Reconnect failed: {e}")
+#                 print(f"Reconnect failed: {e}")
                 network="disconnected"
         
         log.write(msg)
