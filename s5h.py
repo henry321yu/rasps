@@ -43,9 +43,10 @@ POWER_CTL = 0x2D
 SELF_TEST = 0x2E
 RESET = 0x2F
 
-HOST = "140.116.45.98"  # office pc
+# HOST = "140.116.45.98"  # office pc
 # HOST = "140.116.45.14"  # fly pc
-# HOST = "192.168.105.143"  # my pc
+# HOST = 'mypc-heyri.zapto.org'  # my pc
+HOST = "192.168.105.143"  # my pc
 PORT = 5566
 
 i=0
@@ -157,10 +158,8 @@ timeout = 1  # 設定超時為1秒
 # 設定目標座標
 # target_lat = 22.997489859  # 目標經度 高 68.7781m 離base約2m
 # target_lon = 120.221698592  # 目標緯度 #base 22.99748363 120.221716942 68.7752
-# target_lat = 23.000984000 # 目標經度 高 60.0m mypc
-# target_lon = 120.231870000 # 目標緯度 #base 22.99748363 120.221716942 68.7752
-target_lat = 23.021753398 # 目標經度 高 60.0m mypc
-target_lon = 120.196166998 # 目標緯度 #base 22.99748363 120.221716942 68.7752
+target_lat = 23.000984000 # 目標經度 高 60.0m mypc
+target_lon = 120.231870000 # 目標緯度 #base 22.99748363 120.221716942 68.7752
     
     
 bus = smbus2.SMBus(1) # or bus = smbus.SMBus(0) for older version boards
@@ -276,12 +275,11 @@ while True:
         
         log.write(msg)
         print(msg,end='')    
-#         time.sleep(delay)
+    #     time.sleep(delay)
 #         time.sleep(0.2)
-#     else:
-#         msg=("wait for gps...")
-#         print(msg)
-#         s.send(bytes(msg, "utf-8"))
-#         time.sleep(1)
+  #  else:
+   #     msg=("wait for gps...")
+ #       print(msg)
+ #       s.send(bytes(msg, "utf-8"))
+  #      time.sleep(1)
         
-

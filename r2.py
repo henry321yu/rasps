@@ -7,7 +7,8 @@ from datetime import datetime
 
 HEADERSIZE = 10
 
-HOST = "140.116.45.98"  # office pc
+# HOST = "140.116.45.98"  # office pc
+HOST = "0.0.0.0"  # office pc
 PORT = 5566
 
 current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
