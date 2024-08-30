@@ -8,7 +8,7 @@ from datetime import datetime
 HEADERSIZE = 10
 
 # HOST = "104.116.45.14"  # office pc
-# HOST = "104.116.45.14"  # fly pc
+# HOST = "104.116.45.98"  # fly pc
 HOST = "0.0.0.0"  # my pc
 PORT = 5566
 
