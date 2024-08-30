@@ -42,7 +42,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
 #         print(len(full_msg))
         clear_output(wait=True)
-        print(full_msg)
+        print(full_msg,end='')
         log.write(full_msg)
         
 log.close()

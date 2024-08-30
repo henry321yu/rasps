@@ -158,10 +158,10 @@ timeout = 1  # 設定超時為1秒
 # target_lat = 22.997489859  # 目標經度 高 68.7781m 離base約2m
 # target_lon = 120.221698592  # 目標緯度 #base 22.99748363 120.221716942 68.7752
 # target_lat = 23.000984000 # 目標經度 高 60.0m mypc
-# target_lon = 120.231870000 # 目標緯度 #base 22.99748363 120.221716942 68.7752
-target_lat = 23.021753398 # 目標經度 高 60.0m mypc
-target_lon = 120.196166998 # 目標緯度 #base 22.99748363 120.221716942 68.7752
-    
+# target_lon = 120.231870000 # 目標緯度 
+target_lat = 23.021753398 # 目標經度 高 12138.2646m office sit
+target_lon = 120.196166998 # 目標緯度 #base 22.997682324 120.221789423   46.2938
+
     
 bus = smbus2.SMBus(1) # or bus = smbus.SMBus(0) for older version boards
 
@@ -243,7 +243,7 @@ while True:
         msg += '\t'
         msg += str(round(lon,10))
         msg += '\t'
-        msg += str(round(altitude,2))
+        msg += str(round(altitude,5))
         msg += '\t'
         msg += str(gps_mode)
         msg += '\t'
