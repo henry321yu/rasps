@@ -7,14 +7,12 @@ from datetime import datetime
 
 HEADERSIZE = 10
 
-# HOST = "104.116.45.14"  # office pc
-# HOST = "104.116.45.14"  # fly pc
 HOST = "0.0.0.0"  # my pc
 PORT = 5566
 
 current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
 print("current time :",current_datetime)
-log_folder = r'C:\Users\sgrc-325\Desktop\py\log'
+log_folder = r'C:\Users\弘銘\Desktop\WFH\git\log'
 log_filename = f'logger_PC_{current_datetime}.csv'
 log_filepath = os.path.join(log_folder, log_filename)
 
@@ -42,7 +40,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
 #         print(len(full_msg))
         clear_output(wait=True)
-        print(full_msg)
+        print(full_msg,end='')
         log.write(full_msg)
         
 log.close()
