@@ -1,4 +1,6 @@
+import time    #發射端
 import socket
+from datetime import datetime
 
 # 設定伺服器的 IP 和端口
 HOST = "0.0.0.0"  # 本機 IP 地址
@@ -18,5 +20,5 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         while True:
             t=time.time()-t0
             msg=str(round(t, 2))
-            conn.sendall(msg)  # 回傳接收到的數據
+            conn.sendall(msg.encode('utf-8'))  # 回傳接收到的數據
             time.sleep(1)
