@@ -1,4 +1,4 @@
-import time
+import time    #發射端
 import smbus2
 import socket
 import os
