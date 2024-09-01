@@ -22,11 +22,11 @@ s = connect_to_server()
 print('Connected!')
 while True:
     try:
-        data = conn.recv(1024)  # 接收數據
-        data=data.decode("utf-9")
+        data = s.recv(1024)  # 接收數據
+        data=data.decode("utf-8")
         if not data:
             break
-        print(f"Received: {data.decode()}")
+        print(f"Received: {data}")
     except (socket.error, BrokenPipeError) as e:
         print(f"Network error while sending data: {e}. Reconnecting...")
         s.close()
