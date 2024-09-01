@@ -14,8 +14,8 @@ PORT = 5566
 
 current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
 print("current time :", current_datetime)
-log_folder = r'C:\Users\sgrc-325\Desktop\py\log'
-# log_folder = r'C:\Users\弘銘\Desktop\WFH\git\log'
+# log_folder = r'C:\Users\sgrc-325\Desktop\py\log'
+log_folder = r'C:\Users\弘銘\Desktop\WFH\git\log'
 log_filename = f'logger_PC_{current_datetime}.csv'
 log_filepath = os.path.join(log_folder, log_filename)
 
@@ -76,3 +76,4 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
 log.close()
 conn.close()
+
