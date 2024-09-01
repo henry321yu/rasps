@@ -20,15 +20,15 @@ def connect_to_server():
 print('Connecting...')
 s = connect_to_server()
 print('Connected!')
-t0 = time.time()
 while True:
     try:
-        t=time.time()-t0
-        print('sending..')
-        msg=str(round(t, 2))
-        s.sendall(msg.encode('utf-8'))    
-        time.sleep(1)
+        data = conn.recv(1024)  # 接收數據
+        data=data.decode("utf-9")
+        if not data:
+            break
+        print(f"Received: {data.decode()}")
     except (socket.error, BrokenPipeError) as e:
         print(f"Network error while sending data: {e}. Reconnecting...")
         s.close()
         s = connect_to_server()        
+
