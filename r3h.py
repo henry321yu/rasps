@@ -1,4 +1,4 @@
-import socket  #接收端
+import socket    #接收端
 from time import sleep, strftime, time
 import os
 from IPython.display import clear_output
