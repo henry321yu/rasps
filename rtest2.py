@@ -3,7 +3,7 @@ import socket
 from datetime import datetime
 
 # 設定伺服器的 IP 和端口
-HOST = "140.116.45.98"  # 本機 IP 地址
+HOST = "140.116.45.26"  # 本機 IP 地址
 PORT = 5566       # 任意非特權端口
 
 def connect_to_server():
@@ -17,16 +17,16 @@ def connect_to_server():
             print(f"Network error: {e}. Retrying in 5 seconds...")
             time.sleep(5)
 
-print('Connecting...')
+print(f"Connecting {HOST}:{PORT}...")
 s = connect_to_server()
 print('Connected!')
 while True:
     try:
         data = conn.recv(1024)  # 接收數據
-        data=data.decode("utf-9")
+        data=data.decode("utf-8")
         if not data:
             break
-        print(f"Received: {data.decode()}")
+        print(f"Received: {data}")
     except (socket.error, BrokenPipeError) as e:
         print(f"Network error while sending data: {e}. Reconnecting...")
         s.close()

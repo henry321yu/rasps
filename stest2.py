@@ -21,4 +21,5 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             t=time.time()-t0
             msg=str(round(t, 2))
             conn.sendall(msg.encode('utf-8'))  # 回傳接收到的數據
+            print(f"sending: {msg}")
             time.sleep(1)
