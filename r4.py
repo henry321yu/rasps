@@ -77,4 +77,5 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 # 處理數值轉換錯誤
                 pass
 
-log.close()
+    log.close()
+    s.close()
