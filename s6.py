@@ -44,9 +44,22 @@ POWER_CTL = 0x2D
 SELF_TEST = 0x2E
 RESET = 0x2F
 
-# 设置主机和端口
-HOST = "0.0.0.0"  # 服务器监听所有可用的IP地址
-PORT = 5566
+# 設定伺服器的 IP 和端口
+def get_ip_address():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        ip_address = s.getsockname()[0]
+    except Exception:
+        ip_address = "127.0.0.1"
+    finally:
+        s.close()
+    return ip_address
+
+# HOST = "0.0.0.0"  # 本機 IP 地址
+HOST = get_ip_address()
+PORT = 5566        # 任意非特權端口
+print(f"server ip is: {HOST}")
 
 # I2C setup
 bus = smbus2.SMBus(1)
@@ -62,59 +75,96 @@ def read_355_m():
     ay = (var[5] << 12 | var[6] << 4 | var[7] >> 4)
     az = (var[8] << 12 | var[9] << 4 | var[10] >> 4)
 
-    rangee = 0x3E800  # 2g
+    rangee=0x3E800 # 2g
+#     rangee=0x1F400 # 4g
+#     rangee=0xFA00 # 8g
+
     ax = (ax - 0x100000 if ax > 0x80000 else ax) / rangee
     ay = (ay - 0x100000 if ay > 0x80000 else ay) / rangee
     az = (az - 0x100000 if az > 0x80000 else az) / rangee
 
-    temp = ((1852 - (var[0] << 8 | var[1])) / 9.05) + 27.2
+    temp = ((1852 - (var[0] << 8 | var[1])) / 9.05) + 27.2 #need calibrate
 
+# 計算兩組經緯度間的距離（單位：米），使用Haversine公式
 def calculate_distance(lat1, lon1, lat2, lon2):
-    R = 6371000
-    phi1, phi2 = map(math.radians, [lat1, lat2])
+    R = 6371000  # 地球半徑（米）
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
     delta_phi = math.radians(lat2 - lat1)
     delta_lambda = math.radians(lon2 - lon1)
-    a = (math.sin(delta_phi / 2) ** 2 +
-         math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2)
-    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    
+    a = math.sin(delta_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    
+    distance = R * c
+    return distance
+
 
 def parse_nmea_sentence(nmea_sentence):
     parts = nmea_sentence.split(',')
-    if parts[0] == '$GNGGA':
+    
+    if parts[0] == '$GNGGA':  # GGA句子包含時間、位置和質量指標數據
         try:
+            # 解析時間（UTC時間）
             time_utc = parts[1]
-            hours, minutes, seconds = int(time_utc[:2]) + 8, int(time_utc[2:4]), float(time_utc[4:])
+            hours = int(time_utc[0:2])+8 # +8 為台灣時間
+            minutes = int(time_utc[2:4])
+            seconds = float(time_utc[4:])
+
+            # 解析經度與緯度
             lat = float(parts[2])
             lat_dir = parts[3]
             lon = float(parts[4])
             lon_dir = parts[5]
-            altitude = float(parts[9])
-            gps_quality = int(parts[6])
+            altitude = float(parts[9])  # 高程（海拔）
+
+            # 解析GPS模式
+            gps_quality = int(parts[6])  # GPS模式質量指標
             gps_mode = interpret_gps_mode(gps_quality)
+
+            # 轉換經緯度到十進位格式
             lat = convert_to_decimal_degrees(lat, lat_dir)
             lon = convert_to_decimal_degrees(lon, lon_dir)
+
+            # 格式化時間
             formatted_time = f"{hours:02}:{minutes:02}:{seconds:05.2f}"
+
             return formatted_time, lat, lon, altitude, gps_mode
         except (ValueError, IndexError):
+            # 無效的數據格式或數據不完整
             return None
     return None
 
 def interpret_gps_mode(gps_quality):
-    modes = {0: 0, 1: 1, 2: 2, 4: 4, 5: 5}
-    return modes.get(gps_quality, -1)
+    # 解析GPS模式
+    modes = {
+        0: 0,  # Invalid
+        1: 1,  # GPS Fix
+        2: 2,  # DGPS Fix
+        4: 4,  # RTK Fixed
+        5: 5   # RTK Float
+    }
+    return modes.get(gps_quality, -1)  # -1 代表未知的模式
 
 def convert_to_decimal_degrees(value, direction):
+    # 轉換NMEA格式的度分（ddmm.mmmm）到十進位格式
     degrees = int(value // 100)
     minutes = value % 100
     decimal_degrees = degrees + minutes / 60
     return -decimal_degrees if direction in ['S', 'W'] else decimal_degrees
 
-port = '/dev/ttyACM0'
-baud_rate = 9600
-timeout = 1
+# 設定串口參數
+port = '/dev/ttyACM0'  # 替換為實際的串口號，例如'/dev/ttyACM0'
+baud_rate = 9600  # 默認的通訊速率為9600
+timeout = 1  # 設定超時為1秒
 
-target_lat = 23.021753398
-target_lon = 120.196166998
+# 設定目標座標
+target_lat = 22.997489859  # 目標經度 高 68.7781m 離base約2m
+target_lon = 120.221698592  # 目標緯度 #base 22.99748363 120.221716942 68.7752
+# target_lat = 23.000984000 # 目標經度 高 60.0m mypc
+# target_lon = 120.231870000 # 目標緯度 
+# target_lat = 23.021753398 # 目標經度 高 12138.2646m office sit
+# target_lon = 120.196166998 # 目標緯度 #base 22.997682324 120.221789423   46.2938
 
 write_355(RESET, 0x52)
 time.sleep(0.1)
@@ -152,11 +202,14 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
 
         while True:
             t = time.time() - t0
+             # 讀取並解碼NMEA句子
             nmea_sentence = ser.readline().decode('ascii', errors='replace')
+            # 解析時間、經緯度、高程、GPS模式
             result = parse_nmea_sentence(nmea_sentence)
 
             if result:
                 time_utc, lat, lon, altitude, gps_mode = result
+                # 計算與目標座標的距離誤差
                 distance_error = calculate_distance(lat, lon, target_lat, target_lon)
                 read_355_m()
 
@@ -190,7 +243,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
                 msg += str(round(temp, 2))
                 msg += '\n'
                 
-                print(msg)
+                print(msg,end='')
                 log.write(msg)
                 log.flush()
 
@@ -200,9 +253,9 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
                     print(f"Network error while sending data: {e}. Closing connection.")
                     break
 
-            else:
-                print("No valid NMEA sentence received.")
+#             else:
+#                 print("No valid NMEA sentence received.")
 
-            time.sleep(delay)
+#             time.sleep(delay)
 
 log.close()
