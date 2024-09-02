@@ -162,14 +162,36 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
 
                 i += 1
                 f = i / t
-                delay = 0.005
+                delay = 0.005                
                 num = 6
 
-                msg = f"{round(t, 3)}\t{time_utc}\t{round(ax, num)}\t{round(ay, num)}\t{round(az, num)}\t"
-                msg += f"{round(lat, 10)}\t{round(lon, 10)}\t{round(altitude, 5)}\t{gps_mode}\t{round(distance_error, 4)}\t{round(temp, 2)}"
+                msg = ''
+                msg += str(round(t, 3))
+                msg += '\t'
+                msg += str(time_utc)
+                msg += '\t'
+                msg += str(round(ax, num))
+                msg += '\t'
+                msg += str(round(ay, num))
+                msg += '\t'
+                msg += str(round(az, num))
+                msg += '\t'
+                
+                msg += str(round(lat, 10))
+                msg += '\t'
+                msg += str(round(lon, 10))
+                msg += '\t'
+                msg += str(round(altitude, 5))
+                msg += '\t'
+                msg += str(gps_mode)
+                msg += '\t'
+                msg += str(round(distance_error, 4))
+                msg += '\t'    
+                msg += str(round(temp, 2))
+                msg += '\n'
                 
                 print(msg)
-                log.write(msg + '\n')
+                log.write(msg)
                 log.flush()
 
                 try:
