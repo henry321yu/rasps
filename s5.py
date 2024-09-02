@@ -243,9 +243,10 @@ while True:
         msg += str(round(distance_error, 4))
         msg += '\t'    
         msg += str(round(temp, 2))
+        msg += '\n'
         
         print(msg)
-        log.write(msg + '\n')
+        log.write(msg)
         log.flush()
         
         # 嘗試發送數據到伺服器

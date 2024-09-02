@@ -4,8 +4,10 @@ from datetime import datetime
 
 # 設定伺服器的 IP 和端口
 # HOST = "140.116.45.98"  # office pc
-HOST = "140.116.45.26"  # rasp office wifi
-# HOST = "192.168.0.116"  # 本機 IP 地址
+HOST = "140.116.45.14"  # office fly
+# HOST = "140.116.45.26"  # rasp office wifi
+# HOST = "192.168.0.116"  # rasp office wifi
+# HOST = "192.168.0.157"  # fly rasp office wifi
 PORT = 5566       # 任意非特權端口
 
 def connect_to_server():
