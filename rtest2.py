@@ -1,4 +1,4 @@
-import time    #發射端
+import time    #接收端
 import socket
 from datetime import datetime
 
