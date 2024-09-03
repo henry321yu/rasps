@@ -8,22 +8,23 @@ import math
 
 HEADERSIZE = 10
 
+# 設定伺服器的 IP 和端口
 # HOST = "104.116.45.14"  # office pc
 # HOST = "104.116.45.98"  # fly pc
-HOST = "0.0.0.0"  # my pc
+HOST = "140.116.45.26"  # 替換為伺服器的 IP 地址
 PORT = 5566
 
 current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
 print("current time :", current_datetime)
-log_folder = r'C:\Users\sgrc-325\Desktop\py\log'
-# log_folder = r'C:\Users\弘銘\Desktop\WFH\git\log'
+# log_folder = r'C:\Users\sgrc-325\Desktop\py\log'
+log_folder = r'C:\Users\弘銘\Desktop\WFH\git\log'
 log_filename = f'logger_PC_{current_datetime}.csv'
 log_filepath = os.path.join(log_folder, log_filename)
 
 if not os.path.exists(log_folder):
     os.makedirs(log_folder)
 
-print('Waiting for connection...')
+print('Attempting to connect to server...')
 log = open(log_filepath, 'w+', encoding="utf8")
 
 # 指定經緯度的原點
@@ -56,21 +57,23 @@ z_data = []
 
 origin_x, origin_y, origin_z = lat_lon_to_cartesian(origin_lat, origin_lon, origin_alt)
 
+# 創建與伺服器的 TCP/IP 連接
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    s.bind((HOST, PORT))
-    s.listen()
-
-    conn, address = s.accept()
-    print(f"Connection from {address} has been established.")
+    try:
+        s.connect((HOST, PORT))
+        print(f"Connected to server {HOST}:{PORT}.")
+    except socket.error as e:
+        print(f"Error connecting to server: {e}")
+        exit(1)
     
     full_msg = ''
-    new_msg = True
     while True:
-        msg = conn.recv(1024)
+        msg = s.recv(1024)
         full_msg = msg.decode("utf-8")
 
         if len(full_msg) < 10:
-            new_msg = False
+#             print("Incomplete message received.")
+            continue
 
         # Extract latitude, longitude, and altitude from the message
         parts = full_msg.split('\t')
