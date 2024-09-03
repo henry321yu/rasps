@@ -46,7 +46,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
         if len(full_msg) < 10:
             new_msg = False
-            print(f"False")
+#             print(f"False")
 
         # Extract latitude and longitude from the message
         parts = full_msg.split('\t')
@@ -59,7 +59,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 
                 # Update plot
                 ax.clear()
-                ax.scatter(x_data, y_data, c='blue', marker='o')
+                ax.scatter(x_data, y_data, c='blue', marker='.')
                 ax.set_xlabel('Longitude')
                 ax.set_ylabel('Latitude')
                 ax.set_title('GPS Coordinates')
@@ -68,6 +68,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 
                 # Log the message
                 log.write(full_msg)
+                log.flush()
                 clear_output(wait=True)
                 print(full_msg, end='')
             except ValueError:

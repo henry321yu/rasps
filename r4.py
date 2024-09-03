@@ -11,7 +11,10 @@ HEADERSIZE = 10
 # HOST = "104.116.45.14"  # office pc
 # HOST = "104.116.45.98"  # fly pc
 # HOST = "0.0.0.0"  # my pc
-HOST = "140.116.45.26"  # 替換為伺服器的 IP 地址
+# HOST = "140.116.45.26"  # 替換為伺服器的 IP 地址
+HOST = "42.74.43.116"  # 替換為伺服器的 IP 地址
+# HOST = "192.168.0.116"  # 替換為伺服器的 IP 地址
+
 PORT = 5566
 
 current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")

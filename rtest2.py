@@ -6,8 +6,12 @@ from datetime import datetime
 # HOST = "140.116.45.98"  # office pc
 # HOST = "140.116.45.14"  # office fly
 HOST = "140.116.45.26"  # rasp office wifi
-# HOST = "192.168.0.116"  # rasp office wifi
 # HOST = "192.168.0.157"  # fly rasp office wifi
+# HOST = "192.168.0.116"  # rasp 4g
+# HOST = "2001:b400:e7d5:83bc:ec26:bc4:bd57:c271"  # rasp 4g
+# HOST = "100.107.135.29"  # rasp 4g
+# HOST = "42.75.39.28"  # rasp 4g
+
 PORT = 5566       # 任意非特權端口
 
 def connect_to_server():

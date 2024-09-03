@@ -47,6 +47,7 @@ HOST = "140.116.45.98"  # office pc
 # HOST = "140.116.45.14"  # fly pc
 # HOST = "192.168.105.143"  # my pc
 PORT = 5566
+print(f"server ip is: {HOST}:{PORT}")
 
 i = 0
 
@@ -192,7 +193,7 @@ def connect_to_server():
             time.sleep(5)
 
 s = connect_to_server()
-network = "connected"
+print('Connected !')
 
 ser = serial.Serial(port, baud_rate, timeout=timeout)
 

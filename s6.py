@@ -59,7 +59,7 @@ def get_ip_address():
 # HOST = "0.0.0.0"  # 本機 IP 地址
 HOST = get_ip_address()
 PORT = 5566        # 任意非特權端口
-print(f"server ip is: {HOST}")
+print(f"server ip is: {HOST}:{PORT}")
 
 # I2C setup
 bus = smbus2.SMBus(1)
