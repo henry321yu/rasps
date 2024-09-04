@@ -43,10 +43,11 @@ POWER_CTL = 0x2D
 SELF_TEST = 0x2E
 RESET = 0x2F
 
-# HOST = "140.116.45.98"  # office pc
-HOST = "140.116.45.14"  # fly pc
+HOST = "140.116.45.98"  # office pc
+# HOST = "140.116.45.14"  # fly pc
 # HOST = "192.168.105.143"  # my pc
-PORT = 5566
+# PORT = 5566
+PORT = 5567 # my pc
 print(f"server ip is: {HOST}:{PORT}")
 
 i = 0
@@ -263,3 +264,4 @@ while True:
         # 如果在一定時間內沒有接收到數據，可以考慮重新連接串口或網路
 
     time.sleep(delay)
+

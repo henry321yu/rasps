@@ -11,7 +11,8 @@ HEADERSIZE = 10
 # HOST = "104.116.45.14"  # office pc
 # HOST = "104.116.45.98"  # fly pc
 HOST = "0.0.0.0"  # my pc
-PORT = 5566
+# PORT = 5566
+PORT = 5567  # my pc
 
 current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
 print("current time :", current_datetime)
