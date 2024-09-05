@@ -67,7 +67,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         print(f"Connected to server {HOST}:{PORT}.")
     except socket.error as e:
         print(f"Error connecting to server: {e}")
-        exit(1)
+#         exit(1)
     
     full_msg = ''
     while True:

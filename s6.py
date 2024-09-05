@@ -187,12 +187,12 @@ if not os.path.exists(log_folder):
 log = open(log_filepath, 'w+', encoding="utf8")
 
 # 设置Socket服务器
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-    server_socket.bind((HOST, PORT))
-    server_socket.listen()
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    s.bind((HOST, PORT))
+    s.listen()
     print(f"Server listening on {HOST}:{PORT}")
 
-    conn, address = server_socket.accept()
+    conn, address = s.accept()
     with conn:
         print(f"Connection from {address} established.")
         ser = serial.Serial(port, baud_rate, timeout=timeout)
