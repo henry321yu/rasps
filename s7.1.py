@@ -47,15 +47,14 @@ RESET = 0x2F
 
 uart = serial.Serial('/dev/serial0', 9600, timeout=1)
 
-# HOST = "0.0.0.0"  # 本機 IP 地址
-HOST = get_ip_address()
+HOST = "0.0.0.0"  # 本機 IP 地址
+# HOST = get_ip_address()
 PORT = 5566        # 任意非特權端口
 print(f"server ip is: {HOST}:{PORT}")
 
 # I2C setup
 bus = smbus2.SMBus(1)
 Device_Address = 0x1D  # ADXL355 Device Address
-
 
 # 設定串口參數
 port = '/dev/ttyACM0'  # 替換為實際的串口號，例如'/dev/ttyACM0'
@@ -127,10 +126,10 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     phi2 = math.radians(lat2)
     delta_phi = math.radians(lat2 - lat1)
     delta_lambda = math.radians(lon2 - lon1)
-    
+
     a = math.sin(delta_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    
+
     distance = R * c
     return distance
 
@@ -188,8 +187,11 @@ def convert_to_decimal_degrees(value, direction):
     decimal_degrees = degrees + minutes / 60
     return -decimal_degrees if direction in ['S', 'W'] else decimal_degrees
 
-def read_HC12(volt,current,batt):
+def read_HC12():
+    global volt,current,batt
+    volt=current=batt=0
     try:
+        uart = serial.Serial('/dev/serial0', 115200, timeout=1)
         data = uart.readline().decode('utf-8').rstrip()
         if data:        
             print(data)
@@ -224,6 +226,19 @@ def sconn():
         except:
             print("erro conn..")   
 
+def read_gps():
+    global time_utc, lat, lon, altitude, gps_mode,distance_error
+    # 讀取並解碼NMEA句子
+    nmea_sentence = ser.readline().decode('ascii', errors='replace')
+    # 解析時間、經緯度、高程、GPS模式
+    result = parse_nmea_sentence(nmea_sentence)
+    if result:
+        time_utc, lat, lon, altitude, gps_mode = result
+        # 計算與目標座標的距離誤差
+        distance_error = calculate_distance(lat, lon, target_lat, target_lon)
+    else :
+        time_utc=lat=lon=altitude=gps_mode=distance_error=0
+
 write_355(RESET, 0x52)
 time.sleep(0.1)
 write_355(POWER_CTL, 0x00)
@@ -245,65 +260,58 @@ if not os.path.exists(log_folder):
 log = open(log_filepath, 'w+', encoding="utf8")
 
 set_HC12()
-
+ser = serial.Serial(port, baud_rate, timeout=timeout)
 t0 = time.time()
 i = 0
 
 while True:
     t = time.time() - t0
-     # 讀取並解碼NMEA句子
-    nmea_sentence = ser.readline().decode('ascii', errors='replace')
-    # 解析時間、經緯度、高程、GPS模式
-    result = parse_nmea_sentence(nmea_sentence)
+    
+    read_gps()
+    read_355_m()
+    read_HC12()
 
-    if result:
-        time_utc, lat, lon, altitude, gps_mode = result
-        # 計算與目標座標的距離誤差
-        distance_error = calculate_distance(lat, lon, target_lat, target_lon)
-        read_355_m()
-        read_HC12(volt,curren,batt)
+    i += 1
+    f = i / t
+    delay = 0.005                
+    num = 6
 
-        i += 1
-        f = i / t
-        delay = 0.005                
-        num = 6
+    msg = ''
+    msg += str(round(t, 3))
+    msg += '\t'
+    msg += str(time_utc)
+    msg += '\t'
+    msg += str(round(ax, num))
+    msg += '\t'
+    msg += str(round(ay, num))
+    msg += '\t'
+    msg += str(round(az, num))
+    msg += '\t'
+    
+    msg += str(round(lat, 10))
+    msg += '\t'
+    msg += str(round(lon, 10))
+    msg += '\t'
+    msg += str(round(altitude, 5))
+    msg += '\t'
+    msg += str(gps_mode)
+    msg += '\t'
+    msg += str(round(distance_error, 4))
+    msg += '\t'    
+    msg += str(round(temp, 2))
+    msg += '\t'
+    msg += str(round(volt, 2))
+    msg += '\t'
+    msg += str(round(current, 2))
+    msg += '\t'
+    msg += str(round(batt, 2))
+    msg += '\n'
 
-        msg = ''
-        msg += str(round(t, 3))
-        msg += '\t'
-        msg += str(time_utc)
-        msg += '\t'
-        msg += str(round(ax, num))
-        msg += '\t'
-        msg += str(round(ay, num))
-        msg += '\t'
-        msg += str(round(az, num))
-        msg += '\t'
-        
-        msg += str(round(lat, 10))
-        msg += '\t'
-        msg += str(round(lon, 10))
-        msg += '\t'
-        msg += str(round(altitude, 5))
-        msg += '\t'
-        msg += str(gps_mode)
-        msg += '\t'
-        msg += str(round(distance_error, 4))
-        msg += '\t'    
-        msg += str(round(temp, 2))
-        msg += '\n'
-        msg += str(round(volt, 2))
-        msg += '\n'
-        msg += str(round(current, 2))
-        msg += '\n'
-        msg += str(round(batt, 2))
-        msg += '\n'
-        
-        sconn()
-        
-        print(msg,end='')
-        log.write(msg)
-        log.flush()
+    sconn()
+    
+    print(msg,end='')
+    log.write(msg)
+    log.flush()
 log.close()
 
 

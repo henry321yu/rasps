@@ -174,10 +174,13 @@ def convert_to_decimal_degrees(value, direction):
     decimal_degrees = degrees + minutes / 60
     return -decimal_degrees if direction in ['S', 'W'] else decimal_degrees
 
-def read_HC12(volt,current,batt):
+def read_HC12():
+    global volt,current,batt
+    volt=current=batt=0
     try:
+        uart = serial.Serial('/dev/serial0', 115200, timeout=0)
         data = uart.readline().decode('utf-8').rstrip()
-        if data:
+        if data:        
             print(data)
             parts = data.split(",")
             if len(parts) > 2:
@@ -190,7 +193,7 @@ def read_HC12(volt,current,batt):
         print(f"SerialException: {e}")
         uart.close()
         uart = serial.Serial('/dev/serial0', 115200, timeout=1)
-            time.sleep(0.01)        
+        time.sleep(0.01)
 
 # 設定串口參數
 port = '/dev/ttyACM0'  # 替換為實際的串口號，例如'/dev/ttyACM0'
@@ -253,7 +256,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
                 # 計算與目標座標的距離誤差
                 distance_error = calculate_distance(lat, lon, target_lat, target_lon)
                 read_355_m()
-                read_HC12(volt,curren,batt)
+                read_HC12()
 
                 i += 1
                 f = i / t
@@ -299,12 +302,9 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
                     conn.sendall(msg.encode('utf-8'))
                 except (socket.error, BrokenPipeError) as e:
                     print(f"Network error while sending data: {e}. Closing connection.")
-                    break
-
-#             else:
-#                 print("No valid NMEA sentence received.")
-
+#                     break
+            else:
+                print("No valid NMEA sentence received.")
 #             time.sleep(delay)
-
 log.close()
-
+conn.close()
