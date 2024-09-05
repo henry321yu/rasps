@@ -6,18 +6,26 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import math
 
-HEADERSIZE = 10
-
 # 設定伺服器的 IP 和端口
 # HOST = "104.116.45.14"  # office pc
 # HOST = "104.116.45.98"  # fly pc
 HOST = "140.116.45.26"  # 替換為伺服器的 IP 地址
+# HOST = "100.121.141.100"  # 替換為伺服器的 IP 地址
+# HOST = "100.104.98.49"  # 替換為伺服器的 IP 地址
+# HOST = "42.74.9.209"  # 替換為伺服器的 IP 地址
 PORT = 5566
+# PORT = 5567
+# PORT = 12120
+
+# 指定經緯度的原點
+origin_lat = 22.9974896667  # 緯度
+origin_lon = 120.2216983333  # 經度
+origin_alt = 51.6  # 高度 (假設海平面)
 
 current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
 print("current time :", current_datetime)
-# log_folder = r'C:\Users\sgrc-325\Desktop\py\log'
-log_folder = r'C:\Users\弘銘\Desktop\WFH\git\log'
+log_folder = r'C:\Users\sgrc-325\Desktop\py\log'
+# log_folder = r'C:\Users\弘銘\Desktop\WFH\git\log'
 log_filename = f'logger_PC_{current_datetime}.csv'
 log_filepath = os.path.join(log_folder, log_filename)
 
@@ -26,11 +34,6 @@ if not os.path.exists(log_folder):
 
 print('Attempting to connect to server...')
 log = open(log_filepath, 'w+', encoding="utf8")
-
-# 指定經緯度的原點
-origin_lat = 22.9974896667  # 緯度
-origin_lon = 120.2216983333  # 經度
-origin_alt = 51.6  # 高度 (假設海平面)
 
 # 將經緯度轉換為 3D 笛卡爾座標
 def lat_lon_to_cartesian(lat, lon, alt):

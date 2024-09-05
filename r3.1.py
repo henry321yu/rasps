@@ -14,6 +14,11 @@ HOST = "0.0.0.0"  # my pc
 # PORT = 5566
 PORT = 5567  # my pc
 
+# 指定經緯度的原點
+origin_lat = 22.9974896667  # 緯度
+origin_lon = 120.2216983333  # 經度
+origin_alt = 51.6  # 高度 (假設海平面)
+
 current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
 print("current time :", current_datetime)
 log_folder = r'C:\Users\sgrc-325\Desktop\py\log'
@@ -26,11 +31,6 @@ if not os.path.exists(log_folder):
 
 print('Waiting for connection...')
 log = open(log_filepath, 'w+', encoding="utf8")
-
-# 指定經緯度的原點
-origin_lat = 22.9974896667  # 緯度
-origin_lon = 120.2216983333  # 經度
-origin_alt = 51.6  # 高度 (假設海平面)
 
 # 將經緯度轉換為 3D 笛卡爾座標
 def lat_lon_to_cartesian(lat, lon, alt):

@@ -47,9 +47,8 @@ RESET = 0x2F
 HOST = "140.116.45.14"  # fly pc
 # HOST = "192.168.105.143"  # my pc
 PORT = 5566
+# PORT = 5567 # my pc
 print(f"server ip is: {HOST}:{PORT}")
-
-i = 0
 
 def write_355(addr, value):
     bus.write_byte_data(Device_Address, addr, value)
@@ -189,8 +188,8 @@ def connect_to_server():
             print('Connected to server.')
             return s
         except (socket.error, ConnectionRefusedError) as e:
-            print(f"Network error: {e}. Retrying in 5 seconds...")
-            time.sleep(5)
+            print(f"Network error: {e}. Retrying in 1 seconds...")
+            time.sleep(1)
 
 s = connect_to_server()
 print('Connected !')
@@ -198,6 +197,7 @@ print('Connected !')
 ser = serial.Serial(port, baud_rate, timeout=timeout)
 
 t0 = time.time()
+i = 0
 
 while True:
     t = time.time() - t0
@@ -246,7 +246,7 @@ while True:
         msg += str(round(temp, 2))
         msg += '\n'
         
-        print(msg)
+        print(msg,end='')
         log.write(msg)
         log.flush()
         
@@ -258,8 +258,10 @@ while True:
             s.close()
             s = connect_to_server()
 
-    else:
-        print("No valid NMEA sentence received.")
+#     else:
+#         print("No valid NMEA sentence received.")
         # 如果在一定時間內沒有接收到數據，可以考慮重新連接串口或網路
 
     time.sleep(delay)
+
+
