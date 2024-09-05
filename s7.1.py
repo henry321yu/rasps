@@ -70,28 +70,6 @@ target_lon = 120.221698592  # 目標緯度 #base 22.99748363 120.221716942 68.77
 # target_lat = 23.021753398 # 目標經度 高 12138.2646m office sit
 # target_lon = 120.196166998 # 目標緯度 #base 22.997682324 120.221789423   46.2938
 
-write_355(RESET, 0x52)
-time.sleep(0.1)
-write_355(POWER_CTL, 0x00)
-time.sleep(0.03)
-write_355(RANGE, 0x01)
-time.sleep(0.03)
-write_355(SELF_TEST, 0x00)
-time.sleep(0.1)
-
-current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
-print("current time :", current_datetime)
-log_folder = r'/home/rasp1/Desktop/log'
-log_filename = f'logger_RP_{current_datetime}.csv'
-log_filepath = os.path.join(log_folder, log_filename)
-
-if not os.path.exists(log_folder):
-    os.makedirs(log_folder)
-
-log = open(log_filepath, 'w+', encoding="utf8")
-
-set_HC12()
-
 def set_HC12():
     uart = serial.Serial('/dev/serial0', 9600, timeout=1)
     GPIO.setmode(GPIO.BOARD)
@@ -226,7 +204,30 @@ def read_HC12(volt,current,batt):
         print(f"SerialException: {e}")
         uart.close()
         uart = serial.Serial('/dev/serial0', 115200, timeout=1)
-            time.sleep(0.01)        
+        time.sleep(0.01)
+        
+
+write_355(RESET, 0x52)
+time.sleep(0.1)
+write_355(POWER_CTL, 0x00)
+time.sleep(0.03)
+write_355(RANGE, 0x01)
+time.sleep(0.03)
+write_355(SELF_TEST, 0x00)
+time.sleep(0.1)
+
+current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
+print("current time :", current_datetime)
+log_folder = r'/home/rasp1/Desktop/log'
+log_filename = f'logger_RP_{current_datetime}.csv'
+log_filepath = os.path.join(log_folder, log_filename)
+
+if not os.path.exists(log_folder):
+    os.makedirs(log_folder)
+
+log = open(log_filepath, 'w+', encoding="utf8")
+
+set_HC12()
 
 # 设置Socket服务器
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
