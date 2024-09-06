@@ -174,23 +174,24 @@ def convert_to_decimal_degrees(value, direction):
     decimal_degrees = degrees + minutes / 60
     return -decimal_degrees if direction in ['S', 'W'] else decimal_degrees
 
-def read_HC12(volt,current,batt):
+def read_HC12():
+    global volt,current,batt,uart
     try:
         data = uart.readline().decode('utf-8').rstrip()
         if data:
-            print(data)
+#             print(data)
             parts = data.split(",")
             if len(parts) > 2:
                 volt=float(parts[0])
                 current=float(parts[1])
-                batt=float(parts[2])
+                batt=float(parts[2])                
         else:
             time.sleep(0.01)
     except serial.SerialException as e:
-        print(f"SerialException: {e}")
+#         print(f"SerialException: {e}")
         uart.close()
         uart = serial.Serial('/dev/serial0', 115200, timeout=1)
-            time.sleep(0.01)        
+        time.sleep(0.01)        
 
 # 設定串口參數
 port = '/dev/ttyACM0'  # 替換為實際的串口號，例如'/dev/ttyACM0'
@@ -252,8 +253,8 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
                 time_utc, lat, lon, altitude, gps_mode = result
                 # 計算與目標座標的距離誤差
                 distance_error = calculate_distance(lat, lon, target_lat, target_lon)
-                read_355_m()
-                read_HC12(volt,curren,batt)
+                read_355_m()            
+                read_HC12()
 
                 i += 1
                 f = i / t
@@ -283,12 +284,12 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
                 msg += str(round(distance_error, 4))
                 msg += '\t'    
                 msg += str(round(temp, 2))
-                msg += '\n'
-                msg += str(round(volt, 2))
-                msg += '\n'
-                msg += str(round(current, 2))
-                msg += '\n'
-                msg += str(round(batt, 2))
+                msg += '\t'
+                msg += str(round(volt, 3))
+                msg += '\t'
+                msg += str(round(current, 3))
+                msg += '\t'
+                msg += str(round(batt, 3))
                 msg += '\n'
                 
                 print(msg,end='')

@@ -35,4 +35,4 @@ while True:
         print(f"SerialException: {e}")
         uart.close()
         uart = serial.Serial('/dev/serial0', 115200, timeout=1)
-            time.sleep(0.01)
+        time.sleep(0.01)

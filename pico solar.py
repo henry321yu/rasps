@@ -58,9 +58,9 @@ def update_display(current, voltage):
     oled.show()
 
 def send_uart(current, voltage, persent):
-    uart.write(str(round(current,3)).encode('utf-8'))
-    uart.write(b",")
     uart.write(str(round(voltage,3)).encode('utf-8'))
+    uart.write(b",")
+    uart.write(str(round(current,3)).encode('utf-8'))
     uart.write(b",")
     uart.write(str(round(persent,3)).encode('utf-8'))
     uart.write(b"\n")
@@ -90,9 +90,11 @@ set_pin.value(1)
 while True:
     current = read_current()
     voltage = read_voltage()
-    persent=voltage/maxbat*100
+    persent=(2.5-abs(maxbat-voltage))/2.5*100
+    if persent>100:
+        persent=100
     update_display(current, voltage)
     send_uart(current, voltage, persent)
     
-    print(f"current :{current:.3f} A,voltage :{voltage:.3f} V,{persent:.3} %")
+    print(f"voltage :{voltage:.3f} V,current :{current:.3f} A,{persent:.3} %")
     time.sleep(0.1)
