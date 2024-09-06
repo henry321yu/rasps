@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 import serial
 import math
+import RPi.GPIO as GPIO
 
 # ADXL355 寄存器地址
 DEVID_AD = 0x00
@@ -44,6 +45,48 @@ POWER_CTL = 0x2D
 SELF_TEST = 0x2E
 RESET = 0x2F
 
+uart = serial.Serial('/dev/serial0', 9600, timeout=1)
+
+HOST = "0.0.0.0"  # 本機 IP 地址
+# HOST = get_ip_address()
+PORT = 5566        # 任意非特權端口
+print(f"server ip is: {HOST}:{PORT}")
+
+# I2C setup
+bus = smbus2.SMBus(1)
+Device_Address = 0x1D  # ADXL355 Device Address
+
+# 設定串口參數
+port = '/dev/ttyACM0'  # 替換為實際的串口號，例如'/dev/ttyACM0'
+baud_rate = 9600  # 默認的通訊速率為9600
+timeout = 1  # 設定超時為1秒
+
+# 設定目標座標
+target_lat = 22.997489859  # 目標經度 高 68.7781m 離base約2m
+target_lon = 120.221698592  # 目標緯度 #base 22.99748363 120.221716942 68.7752
+# target_lat = 23.000984000 # 目標經度 高 60.0m mypc
+# target_lon = 120.231870000 # 目標緯度 
+# target_lat = 23.021753398 # 目標經度 高 12138.2646m office sit
+# target_lon = 120.196166998 # 目標緯度 #base 22.997682324 120.221789423   46.2938
+
+def set_HC12():
+    uart = serial.Serial('/dev/serial0', 9600, timeout=1)
+    GPIO.setmode(GPIO.BOARD)
+    GPIO.setup(18,GPIO.OUT)
+    GPIO.output(18,0)
+    time.sleep(0.1)
+    uart.write(b'AT+B115200\r\n')
+    time.sleep(0.1)
+    uart = serial.Serial('/dev/serial0', 115200, timeout=1)
+    time.sleep(0.1)
+    uart.write(b'AT+B115200\r\n')
+    time.sleep(0.1)
+    uart.write(b'AT+C087\r\n')
+    time.sleep(0.1)
+    uart.write(b'AT+P8\r\n')
+    time.sleep(0.1) 
+    GPIO.output(18,1)
+
 # 設定伺服器的 IP 和端口
 def get_ip_address():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -55,15 +98,6 @@ def get_ip_address():
     finally:
         s.close()
     return ip_address
-
-# HOST = "0.0.0.0"  # 本機 IP 地址
-HOST = get_ip_address()
-PORT = 5566        # 任意非特權端口
-print(f"server ip is: {HOST}:{PORT}")
-
-# I2C setup
-bus = smbus2.SMBus(1)
-Device_Address = 0x1D  # ADXL355 Device Address
 
 def write_355(addr, value):
     bus.write_byte_data(Device_Address, addr, value)
@@ -92,10 +126,10 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     phi2 = math.radians(lat2)
     delta_phi = math.radians(lat2 - lat1)
     delta_lambda = math.radians(lon2 - lon1)
-    
+
     a = math.sin(delta_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    
+
     distance = R * c
     return distance
 
@@ -153,18 +187,57 @@ def convert_to_decimal_degrees(value, direction):
     decimal_degrees = degrees + minutes / 60
     return -decimal_degrees if direction in ['S', 'W'] else decimal_degrees
 
-# 設定串口參數
-port = '/dev/ttyACM0'  # 替換為實際的串口號，例如'/dev/ttyACM0'
-baud_rate = 9600  # 默認的通訊速率為9600
-timeout = 1  # 設定超時為1秒
+def read_HC12():
+    global volt,current,batt
+    volt=current=batt=0
+    try:
+        uart = serial.Serial('/dev/serial0', 115200, timeout=1)
+        data = uart.readline().decode('utf-8').rstrip()
+        if data:        
+            print(data)
+            parts = data.split(",")
+            if len(parts) > 2:
+                volt=float(parts[0])
+                current=float(parts[1])
+                batt=float(parts[2])
+        else:
+            time.sleep(0.01)
+    except serial.SerialException as e:
+        print(f"SerialException: {e}")
+        uart.close()
+        uart = serial.Serial('/dev/serial0', 115200, timeout=1)
+        time.sleep(0.01)
+        
+def sconn():         
+    try:        
+        print("might connected..")   
+    except:
+        s=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind((HOST, PORT))
+        s.listen()
+        print(f"Server listening on {HOST}:{PORT}")
+        try:
+            conn, address = s.accept()    
+            print(f"Connection from {address} established.")
+            try:
+                conn.sendall(msg.encode('utf-8'))
+            except (socket.error, BrokenPipeError) as e:
+                print(f"Network error while sending data: {e}. Closing connection.")
+        except:
+            print("erro conn..")   
 
-# 設定目標座標
-target_lat = 22.997489859  # 目標經度 高 68.7781m 離base約2m
-target_lon = 120.221698592  # 目標緯度 #base 22.99748363 120.221716942 68.7752
-# target_lat = 23.000984000 # 目標經度 高 60.0m mypc
-# target_lon = 120.231870000 # 目標緯度 
-# target_lat = 23.021753398 # 目標經度 高 12138.2646m office sit
-# target_lon = 120.196166998 # 目標緯度 #base 22.997682324 120.221789423   46.2938
+def read_gps():
+    global time_utc, lat, lon, altitude, gps_mode,distance_error
+    # 讀取並解碼NMEA句子
+    nmea_sentence = ser.readline().decode('ascii', errors='replace')
+    # 解析時間、經緯度、高程、GPS模式
+    result = parse_nmea_sentence(nmea_sentence)
+    if result:
+        time_utc, lat, lon, altitude, gps_mode = result
+        # 計算與目標座標的距離誤差
+        distance_error = calculate_distance(lat, lon, target_lat, target_lon)
+    else :
+        time_utc=lat=lon=altitude=gps_mode=distance_error=0
 
 write_355(RESET, 0x52)
 time.sleep(0.1)
@@ -186,76 +259,59 @@ if not os.path.exists(log_folder):
 
 log = open(log_filepath, 'w+', encoding="utf8")
 
-# 设置Socket服务器
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    s.bind((HOST, PORT))
-    s.listen()
-    print(f"Server listening on {HOST}:{PORT}")
+set_HC12()
+ser = serial.Serial(port, baud_rate, timeout=timeout)
+t0 = time.time()
+i = 0
 
-    conn, address = s.accept()
-    with conn:
-        print(f"Connection from {address} established.")
-        ser = serial.Serial(port, baud_rate, timeout=timeout)
+while True:
+    t = time.time() - t0
+    
+    read_gps()
+    read_355_m()
+    read_HC12()
 
-        t0 = time.time()
-        i = 0
+    i += 1
+    f = i / t
+    delay = 0.005                
+    num = 6
 
-        while True:
-            t = time.time() - t0
-             # 讀取並解碼NMEA句子
-            nmea_sentence = ser.readline().decode('ascii', errors='replace')
-            # 解析時間、經緯度、高程、GPS模式
-            result = parse_nmea_sentence(nmea_sentence)
+    msg = ''
+    msg += str(round(t, 3))
+    msg += '\t'
+    msg += str(time_utc)
+    msg += '\t'
+    msg += str(round(ax, num))
+    msg += '\t'
+    msg += str(round(ay, num))
+    msg += '\t'
+    msg += str(round(az, num))
+    msg += '\t'
+    
+    msg += str(round(lat, 10))
+    msg += '\t'
+    msg += str(round(lon, 10))
+    msg += '\t'
+    msg += str(round(altitude, 5))
+    msg += '\t'
+    msg += str(gps_mode)
+    msg += '\t'
+    msg += str(round(distance_error, 4))
+    msg += '\t'    
+    msg += str(round(temp, 2))
+    msg += '\t'
+    msg += str(round(volt, 2))
+    msg += '\t'
+    msg += str(round(current, 2))
+    msg += '\t'
+    msg += str(round(batt, 2))
+    msg += '\n'
 
-            if result:
-                time_utc, lat, lon, altitude, gps_mode = result
-                # 計算與目標座標的距離誤差
-                distance_error = calculate_distance(lat, lon, target_lat, target_lon)
-                read_355_m()
-
-                i += 1
-                f = i / t
-                delay = 0.005                
-                num = 6
-
-                msg = ''
-                msg += str(round(t, 3))
-                msg += '\t'
-                msg += str(time_utc)
-                msg += '\t'
-                msg += str(round(ax, num))
-                msg += '\t'
-                msg += str(round(ay, num))
-                msg += '\t'
-                msg += str(round(az, num))
-                msg += '\t'
-                
-                msg += str(round(lat, 10))
-                msg += '\t'
-                msg += str(round(lon, 10))
-                msg += '\t'
-                msg += str(round(altitude, 5))
-                msg += '\t'
-                msg += str(gps_mode)
-                msg += '\t'
-                msg += str(round(distance_error, 4))
-                msg += '\t'    
-                msg += str(round(temp, 2))
-                msg += '\n'
-                
-                print(msg,end='')
-                log.write(msg)
-                log.flush()
-
-                try:
-                    conn.sendall(msg.encode('utf-8'))
-                except (socket.error, BrokenPipeError) as e:
-                    print(f"Network error while sending data: {e}. Closing connection.")
-                    break
-
-#             else:
-#                 print("No valid NMEA sentence received.")
-
-#             time.sleep(delay)
-
+    sconn()
+    
+    print(msg,end='')
+    log.write(msg)
+    log.flush()
 log.close()
+
+

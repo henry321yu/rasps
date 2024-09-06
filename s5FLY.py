@@ -1,4 +1,4 @@
-import time
+import time    #發射端
 import smbus2
 import socket
 import os
@@ -6,8 +6,7 @@ from datetime import datetime
 import serial
 import math
 
-# ADXL355 寄存器地址
-DEVID_AD = 0x00
+DEVID_AD = 0x00 #ADXL355BZ
 DEVID_MST = 0x01
 PARTID = 0x02
 REVID = 0x03
@@ -44,46 +43,36 @@ POWER_CTL = 0x2D
 SELF_TEST = 0x2E
 RESET = 0x2F
 
-# 設定伺服器的 IP 和端口
-def get_ip_address():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(("8.8.8.8", 80))
-        ip_address = s.getsockname()[0]
-    except Exception:
-        ip_address = "127.0.0.1"
-    finally:
-        s.close()
-    return ip_address
-
-# HOST = "0.0.0.0"  # 本機 IP 地址
-HOST = get_ip_address()
-PORT = 5566        # 任意非特權端口
+# HOST = "140.116.45.98"  # office pc
+HOST = "140.116.45.14"  # fly pc
+# HOST = "192.168.105.143"  # my pc
+PORT = 5566
 print(f"server ip is: {HOST}:{PORT}")
-
-# I2C setup
-bus = smbus2.SMBus(1)
-Device_Address = 0x1D  # ADXL355 Device Address
 
 def write_355(addr, value):
     bus.write_byte_data(Device_Address, addr, value)
 
 def read_355_m():
-    global ax, ay, az, temp
-    var = bus.read_i2c_block_data(Device_Address, TEMP2, 11)
+    global var, ax, ay, az, temp
+    var = bus.read_i2c_block_data(0x1D, TEMP2, 11)
+    
     ax = (var[2] << 12 | var[3] << 4 | var[4] >> 4)
     ay = (var[5] << 12 | var[6] << 4 | var[7] >> 4)
     az = (var[8] << 12 | var[9] << 4 | var[10] >> 4)
-
-    rangee=0x3E800 # 2g
-#     rangee=0x1F400 # 4g
-#     rangee=0xFA00 # 8g
-
-    ax = (ax - 0x100000 if ax > 0x80000 else ax) / rangee
-    ay = (ay - 0x100000 if ay > 0x80000 else ay) / rangee
-    az = (az - 0x100000 if az > 0x80000 else az) / rangee
-
-    temp = ((1852 - (var[0] << 8 | var[1])) / 9.05) + 27.2 #need calibrate
+    
+    rangee = 0x3E800  # 2g
+    if ax > 0x80000:
+        ax -= 0x100000
+    ax = ax / rangee
+    if ay > 0x80000:
+        ay -= 0x100000
+    ay = ay / rangee
+    if az > 0x80000:
+        az -= 0x100000
+    az = az / rangee
+    
+    temp = (var[0] << 8 | var[1])
+    temp = ((1852 - temp) / 9.05) + 27.2  # 需要校準
 
 # 計算兩組經緯度間的距離（單位：米），使用Haversine公式
 def calculate_distance(lat1, lon1, lat2, lon2):
@@ -99,15 +88,14 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     distance = R * c
     return distance
 
-
 def parse_nmea_sentence(nmea_sentence):
     parts = nmea_sentence.split(',')
     
-    if parts[0] == '$GNGGA':  # GGA句子包含時間、位置和質量指標數據
+    if parts[0] == '$GNGGA':  # GGA 句子包含時間、位置和質量指標數據
         try:
             # 解析時間（UTC時間）
             time_utc = parts[1]
-            hours = int(time_utc[0:2])+8 # +8 為台灣時間
+            hours = int(time_utc[0:2]) + 8  # +8 為台灣時間
             minutes = int(time_utc[2:4])
             seconds = float(time_utc[4:])
 
@@ -138,7 +126,7 @@ def parse_nmea_sentence(nmea_sentence):
 def interpret_gps_mode(gps_quality):
     # 解析GPS模式
     modes = {
-        0: 0,  # Invalid
+        0: 0,  # 無效
         1: 1,  # GPS Fix
         2: 2,  # DGPS Fix
         4: 4,  # RTK Fixed
@@ -151,7 +139,11 @@ def convert_to_decimal_degrees(value, direction):
     degrees = int(value // 100)
     minutes = value % 100
     decimal_degrees = degrees + minutes / 60
-    return -decimal_degrees if direction in ['S', 'W'] else decimal_degrees
+
+    if direction in ['S', 'W']:
+        decimal_degrees = -decimal_degrees
+
+    return decimal_degrees
 
 # 設定串口參數
 port = '/dev/ttyACM0'  # 替換為實際的串口號，例如'/dev/ttyACM0'
@@ -166,18 +158,22 @@ target_lon = 120.221698592  # 目標緯度 #base 22.99748363 120.221716942 68.77
 # target_lat = 23.021753398 # 目標經度 高 12138.2646m office sit
 # target_lon = 120.196166998 # 目標緯度 #base 22.997682324 120.221789423   46.2938
 
-write_355(RESET, 0x52)
+bus = smbus2.SMBus(1)  # 或使用 bus = smbus.SMBus(0) 來支持舊版板子
+
+# 設定 ADXL355 設備地址
+Device_Address = 0x1D  # ADXL355 設備地址
+write_355(RESET, 0x52)  # 重置傳感器
 time.sleep(0.1)
-write_355(POWER_CTL, 0x00)
+write_355(POWER_CTL, 0x00)  # 寫入 0 以啟用傳感器
 time.sleep(0.03)
 write_355(RANGE, 0x01)
 time.sleep(0.03)
-write_355(SELF_TEST, 0x00)
+write_355(SELF_TEST, 0x00)  # 寫入 0 以禁用自檢
 time.sleep(0.1)
 
 current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
 print("current time :", current_datetime)
-log_folder = r'/home/rasp1/Desktop/log'
+log_folder = r'/home/rasp3/Desktop/log'
 log_filename = f'logger_RP_{current_datetime}.csv'
 log_filepath = os.path.join(log_folder, log_filename)
 
@@ -186,76 +182,88 @@ if not os.path.exists(log_folder):
 
 log = open(log_filepath, 'w+', encoding="utf8")
 
-# 设置Socket服务器
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    s.bind((HOST, PORT))
-    s.listen()
-    print(f"Server listening on {HOST}:{PORT}")
+# 嘗試建立網路連接
+def connect_to_server():
+    while True:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((HOST, PORT))
+            print('Connected to server.')
+            return s
+        except (socket.error, ConnectionRefusedError) as e:
+            print(f"Network error: {e}. Retrying in 1 seconds...")
+            time.sleep(1)
 
-    conn, address = s.accept()
-    with conn:
-        print(f"Connection from {address} established.")
-        ser = serial.Serial(port, baud_rate, timeout=timeout)
+s = connect_to_server()
+print('Connected !')
 
-        t0 = time.time()
-        i = 0
+ser = serial.Serial(port, baud_rate, timeout=timeout)
 
-        while True:
-            t = time.time() - t0
-             # 讀取並解碼NMEA句子
-            nmea_sentence = ser.readline().decode('ascii', errors='replace')
-            # 解析時間、經緯度、高程、GPS模式
-            result = parse_nmea_sentence(nmea_sentence)
+t0 = time.time()
+i = 0
 
-            if result:
-                time_utc, lat, lon, altitude, gps_mode = result
-                # 計算與目標座標的距離誤差
-                distance_error = calculate_distance(lat, lon, target_lat, target_lon)
-                read_355_m()
+while True:
+    t = time.time() - t0
+    
+    # 讀取並解碼NMEA句子
+    nmea_sentence = ser.readline().decode('ascii', errors='replace')
+    
+    # 解析時間、經緯度、高程、GPS模式
+    result = parse_nmea_sentence(nmea_sentence)
+    
+    if result:
+        time_utc, lat, lon, altitude, gps_mode = result
+        # 計算與目標座標的距離誤差
+        distance_error = calculate_distance(lat, lon, target_lat, target_lon)
+        
+        read_355_m()
+        
+        i += 1
+        f = i / t
+        delay = 0.005
+        
+        num = 6
+        
+        msg = ''
+        msg += str(round(t, 3))
+        msg += '\t'
+        msg += str(time_utc)
+        msg += '\t'
+        msg += str(round(ax, num))
+        msg += '\t'
+        msg += str(round(ay, num))
+        msg += '\t'
+        msg += str(round(az, num))
+        msg += '\t'
+        
+        msg += str(round(lat, 10))
+        msg += '\t'
+        msg += str(round(lon, 10))
+        msg += '\t'
+        msg += str(round(altitude, 5))
+        msg += '\t'
+        msg += str(gps_mode)
+        msg += '\t'
+        msg += str(round(distance_error, 4))
+        msg += '\t'    
+        msg += str(round(temp, 2))
+        msg += '\n'    
+        
+        # print(msg,end='')
+        # log.write(msg)
+        # log.flush()
+        
+        # 嘗試發送數據到伺服器
+        try:
+            s.sendall(msg.encode('utf-8'))
+        except (socket.error, BrokenPipeError) as e:
+            print(f"Network error while sending data: {e}. Reconnecting...")
+            s.close()
+            s = connect_to_server()
 
-                i += 1
-                f = i / t
-                delay = 0.005                
-                num = 6
+#     else:
+#         print("No valid NMEA sentence received.")
+#         # 如果在一定時間內沒有接收到數據，可以考慮重新連接串口或網路
 
-                msg = ''
-                msg += str(round(t, 3))
-                msg += '\t'
-                msg += str(time_utc)
-                msg += '\t'
-                msg += str(round(ax, num))
-                msg += '\t'
-                msg += str(round(ay, num))
-                msg += '\t'
-                msg += str(round(az, num))
-                msg += '\t'
-                
-                msg += str(round(lat, 10))
-                msg += '\t'
-                msg += str(round(lon, 10))
-                msg += '\t'
-                msg += str(round(altitude, 5))
-                msg += '\t'
-                msg += str(gps_mode)
-                msg += '\t'
-                msg += str(round(distance_error, 4))
-                msg += '\t'    
-                msg += str(round(temp, 2))
-                msg += '\n'
-                
-                print(msg,end='')
-                log.write(msg)
-                log.flush()
+#     time.sleep(delay)
 
-                try:
-                    conn.sendall(msg.encode('utf-8'))
-                except (socket.error, BrokenPipeError) as e:
-                    print(f"Network error while sending data: {e}. Closing connection.")
-                    break
-
-#             else:
-#                 print("No valid NMEA sentence received.")
-
-#             time.sleep(delay)
-
-log.close()

@@ -175,8 +175,10 @@ def convert_to_decimal_degrees(value, direction):
     return -decimal_degrees if direction in ['S', 'W'] else decimal_degrees
 
 def read_HC12():
-    global volt,current,batt,uart
+    global volt,current,batt
+    volt=current=batt=0
     try:
+        uart = serial.Serial('/dev/serial0', 115200, timeout=0)
         data = uart.readline().decode('utf-8').rstrip()
         if data:
 #             print(data)
@@ -253,7 +255,8 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
                 time_utc, lat, lon, altitude, gps_mode = result
                 # 計算與目標座標的距離誤差
                 distance_error = calculate_distance(lat, lon, target_lat, target_lon)
-                read_355_m()            
+                
+                read_355_m()
                 read_HC12()
 
                 i += 1
@@ -300,12 +303,9 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
                     conn.sendall(msg.encode('utf-8'))
                 except (socket.error, BrokenPipeError) as e:
                     print(f"Network error while sending data: {e}. Closing connection.")
-                    break
-
-#             else:
-#                 print("No valid NMEA sentence received.")
-
+#                     break
+            else:
+                print("No valid NMEA sentence received.")
 #             time.sleep(delay)
-
 log.close()
-
+conn.close()
