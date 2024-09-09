@@ -192,7 +192,7 @@ def read_HC12():
     volt=current=batt=0
     try:
         uart = serial.Serial('/dev/serial0', 115200, timeout=1)
-        data = uart.readline().decode('utf-8').rstrip()
+        data = uart.readline().decode('utf-8', errors='ignore').rstrip()
         if data:        
             print(data)
             parts = data.split(",")
@@ -267,7 +267,7 @@ i = 0
 while True:
     t = time.time() - t0
     
-    read_gps()
+#     read_gps()
     read_355_m()
     read_HC12()
 
@@ -279,8 +279,8 @@ while True:
     msg = ''
     msg += str(round(t, 3))
     msg += '\t'
-    msg += str(time_utc)
-    msg += '\t'
+#     msg += str(time_utc)
+#     msg += '\t'
     msg += str(round(ax, num))
     msg += '\t'
     msg += str(round(ay, num))
@@ -288,18 +288,19 @@ while True:
     msg += str(round(az, num))
     msg += '\t'
     
-    msg += str(round(lat, 10))
-    msg += '\t'
-    msg += str(round(lon, 10))
-    msg += '\t'
-    msg += str(round(altitude, 5))
-    msg += '\t'
-    msg += str(gps_mode)
-    msg += '\t'
-    msg += str(round(distance_error, 4))
-    msg += '\t'    
-    msg += str(round(temp, 2))
-    msg += '\t'
+#     msg += str(round(lat, 10))
+#     msg += '\t'
+#     msg += str(round(lon, 10))
+#     msg += '\t'
+#     msg += str(round(altitude, 5))
+#     msg += '\t'
+#     msg += str(gps_mode)
+#     msg += '\t'
+#     msg += str(round(distance_error, 4))
+#     msg += '\t'    
+#     msg += str(round(temp, 2))
+#     msg += '\t'
+    
     msg += str(round(volt, 2))
     msg += '\t'
     msg += str(round(current, 2))
@@ -307,11 +308,12 @@ while True:
     msg += str(round(batt, 2))
     msg += '\n'
 
-    sconn()
+#     sconn()
     
     print(msg,end='')
     log.write(msg)
     log.flush()
+    time.sleep(0.2)
 log.close()
 
 
