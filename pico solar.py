@@ -46,7 +46,7 @@ def read_current():
     adc_value = current_adc.read_u16()
     voltage = (adc_value / ADC_RES) * V_REF
     voltage = (voltage - OFFSET)
-    current = voltage / SENSITIVITY - 0.18
+    current = voltage / SENSITIVITY - 0.3
     return current
 
 def read_voltage():
@@ -98,7 +98,7 @@ while True:
     current = read_current()
     voltage = read_voltage()
     persent = (2.5 - abs(maxbat - voltage)) / 2.5 * 100
-    if persent>100:
+    if voltage>13.2:
         persent=100
 
     # 保存當前測量的數據
