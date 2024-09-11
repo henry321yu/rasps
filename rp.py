@@ -1,6 +1,4 @@
 import time
-import os
-from datetime import datetime
 import serial
 import math
 import RPi.GPIO as GPIO
@@ -32,7 +30,7 @@ def read_HC12():
         uart = serial.Serial('/dev/serial0', 115200, timeout=1)
         data = uart.readline().decode('utf-8', errors='ignore').rstrip()
         if data:        
-            print(data)
+#             print(data)
             parts = data.split(",")
             if len(parts) > 2:
                 volt=float(parts[0])
@@ -41,22 +39,11 @@ def read_HC12():
         else:
             time.sleep(0.01)
     except serial.SerialException as e:
-        print(f"SerialException: {e}")
+#         print(f"SerialException: {e}")
         uart.close()
         uart = serial.Serial('/dev/serial0', 115200, timeout=1)
         time.sleep(0.01)
         
-current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
-print("current time :", current_datetime)
-log_folder = r'/home/rasp1/Desktop/log'
-log_filename = f'logger_RP_{current_datetime}.csv'
-log_filepath = os.path.join(log_folder, log_filename)
-
-if not os.path.exists(log_folder):
-    os.makedirs(log_folder)
-
-log = open(log_filepath, 'w+', encoding="utf8")
-
 set_HC12()
 
 t0 = time.time()
@@ -78,10 +65,7 @@ while True:
         msg += '\n'
         
         print(msg,end='')
-        log.write(msg)
-        log.flush()
         time.sleep(1)
-log.close()
 
 
 
