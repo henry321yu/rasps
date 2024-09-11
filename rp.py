@@ -32,17 +32,20 @@ def read_HC12():
         if data:        
 #             print(data)
             parts = data.split(",")
-            if len(parts) > 2:
-                volt=float(parts[0])
-                current=float(parts[1])
-                batt=float(parts[2])
+            if len(parts) == 3:
+                try:
+                    volt=float(parts[0])
+                    current=float(parts[1])
+                    batt=float(parts[2])
+                except:
+                    time.sleep(0.001)
         else:
-            time.sleep(0.01)
+            time.sleep(0.001)
     except serial.SerialException as e:
 #         print(f"SerialException: {e}")
-        uart.close()
-        uart = serial.Serial('/dev/serial0', 115200, timeout=1)
-        time.sleep(0.01)
+#         uart.close()
+#         uart = serial.Serial('/dev/serial0', 115200, timeout=1)
+        time.sleep(0.001)
         
 set_HC12()
 
