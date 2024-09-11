@@ -313,7 +313,7 @@ while True:
     print(msg,end='')
     log.write(msg)
     log.flush()
-    time.sleep(0.2)
+    time.sleep(1)
 log.close()
 
 
