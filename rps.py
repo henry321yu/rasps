@@ -1,9 +1,9 @@
-import time
+import time import sleep, strftime, time
 import serial
 import math
 import RPi.GPIO as GPIO
-
-uart = serial.Serial('/dev/serial0', 9600, timeout=1)
+from datetime import datetime
+import os
 
 def set_HC12():
     uart = serial.Serial('/dev/serial0', 9600, timeout=1)
@@ -54,6 +54,22 @@ def v2p(voltage):
     else:
         percentage = (voltage - minv) / (maxv - minv) * 100
         return percentage
+
+
+uart = serial.Serial('/dev/serial0', 9600, timeout=1)
+
+current_datetime = datetime.now().strftime("%Y%m%d_%H%M%S")
+print("current time :", current_datetime)
+# log_folder = r'C:\Users\sgrc-325\Desktop\py\log'
+# log_folder = r'C:\Users\弘銘\Desktop\WFH\git\log'
+log_folder = r'/home/rasp3/Desktop/log'
+log_filename = f'logger_P_{current_datetime}.csv'
+log_filepath = os.path.join(log_folder, log_filename)
+
+if not os.path.exists(log_folder):
+    os.makedirs(log_folder)
+    
+log = open(log_filepath, 'w+', encoding="utf8")
         
 set_HC12()
 
@@ -64,10 +80,13 @@ while True:
     t = time.time() - t0
     read_HC12()
     if True:
+        current_datetime = datetime.now().strftime("%H:%M:%S")
 
         msg = ''
         msg += str(round(t, 3))
         msg += '\t'    
+        msg += str(current_datetime)
+        msg += '\t'
         msg += str(round(volt, 2))
         msg += '\t'
         msg += str(round(current, 2))
@@ -76,7 +95,10 @@ while True:
         msg += '\n'
         
         print(msg,end='')
+        log.write(msg)
+        log.flush()
         time.sleep(1)
+
 
 
 
