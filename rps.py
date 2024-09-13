@@ -1,4 +1,4 @@
-import time import sleep, strftime, time
+import time
 import serial
 import math
 import RPi.GPIO as GPIO
@@ -75,30 +75,28 @@ set_HC12()
 
 t0 = time.time()
 i = 0
+t1 = 0
 
 while True:
     t = time.time() - t0
     read_HC12()
     if True:
         current_datetime = datetime.now().strftime("%H:%M:%S")
+        if (t-t1>=1)&(volt>0):
+            t1=t
 
-        msg = ''
-        msg += str(round(t, 3))
-        msg += '\t'    
-        msg += str(current_datetime)
-        msg += '\t'
-        msg += str(round(volt, 2))
-        msg += '\t'
-        msg += str(round(current, 2))
-        msg += '\t'
-        msg += str(round(batt, 2))
-        msg += '\n'
-        
-        print(msg,end='')
-        log.write(msg)
-        log.flush()
-        time.sleep(1)
-
-
-
-
+            msg = ''
+            msg += str(round(t, 3))
+            msg += '\t'    
+            msg += str(current_datetime)
+            msg += '\t'
+            msg += str(round(volt, 2))
+            msg += '\t'
+            msg += str(round(current, 2))
+            msg += '\t'
+            msg += str(round(batt, 2))
+            msg += '\n'
+            
+            print(msg,end='')
+            log.write(msg)
+            log.flush()
