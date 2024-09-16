@@ -82,8 +82,8 @@ while True:
     read_HC12()
     if True:
         current_datetime = datetime.now().strftime("%H:%M:%S")
-        if (t-t1>=1)&(volt>0):
-            t1=t
+        if (t-t1>=10)&(volt>0):
+            t1 = t
 
             msg = ''
             msg += str(round(t, 3))
