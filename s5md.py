@@ -152,6 +152,8 @@ baud_rate = 9600  # 默認的通訊速率為9600
 timeout = 1  # 設定超時為1秒
 
 # 設定目標座標
+# target_lat = 22.997489859  # hight 68.7781m base distence 2m
+# target_lon = 120.221698592  # base 22.99748363 120.221716942 68.7752
 target_lat = 24.6190013333 # 緯度 moustain 5c
 target_lon = 121.2869091667  # 經度
 
