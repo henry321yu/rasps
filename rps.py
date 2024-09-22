@@ -1,3 +1,4 @@
+# from time import sleep, strftime, time
 import time
 import serial
 import math
@@ -75,15 +76,15 @@ set_HC12()
 
 t0 = time.time()
 i = 0
-t1 = 0
+t1=0
 
 while True:
     t = time.time() - t0
     read_HC12()
     if True:
         current_datetime = datetime.now().strftime("%H:%M:%S")
-        if (t-t1>=10)&(volt>0):
-            t1 = t
+        if (t-t1>=5)&(volt>0):
+            t1=t
 
             msg = ''
             msg += str(round(t, 3))
@@ -100,3 +101,7 @@ while True:
             print(msg,end='')
             log.write(msg)
             log.flush()
+#             time.sleep(1)
+
+
+

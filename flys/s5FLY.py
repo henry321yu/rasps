@@ -43,14 +43,11 @@ POWER_CTL = 0x2D
 SELF_TEST = 0x2E
 RESET = 0x2F
 
-HOST = "140.116.45.98"  # office pc
-# HOST = "140.116.45.14"  # fly pc
+# HOST = "140.116.45.98"  # office pc
+HOST = "140.116.45.14"  # fly pc
 # HOST = "192.168.105.143"  # my pc
-# PORT = 5566
-PORT = 5567  # my pc
+PORT = 5566
 print(f"server ip is: {HOST}:{PORT}")
-
-i = 0
 
 def write_355(addr, value):
     bus.write_byte_data(Device_Address, addr, value)
@@ -154,10 +151,12 @@ baud_rate = 9600  # 默認的通訊速率為9600
 timeout = 1  # 設定超時為1秒
 
 # 設定目標座標
-# target_lat = 22.997489859  # 目標經度 高 68.7781m 離base約2m
-# target_lon = 120.221698592  # 目標緯度 #base 22.99748363 120.221716942 68.7752
-target_lat = 24.6190013333 # ?? moustain 5c
-target_lon = 121.2869091667  # ??
+target_lat = 22.997489859  # 目標經度 高 68.7781m 離base約2m
+target_lon = 120.221698592  # 目標緯度 #base 22.99748363 120.221716942 68.7752
+# target_lat = 23.000984000 # 目標經度 高 60.0m mypc
+# target_lon = 120.231870000 # 目標緯度 
+# target_lat = 23.021753398 # 目標經度 高 12138.2646m office sit
+# target_lon = 120.196166998 # 目標緯度 #base 22.997682324 120.221789423   46.2938
 
 bus = smbus2.SMBus(1)  # 或使用 bus = smbus.SMBus(0) 來支持舊版板子
 
@@ -188,7 +187,6 @@ def connect_to_server():
     while True:
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#             s.settimeout(1)
             s.connect((HOST, PORT))
             print('Connected to server.')
             return s
@@ -202,6 +200,7 @@ print('Connected !')
 ser = serial.Serial(port, baud_rate, timeout=timeout)
 
 t0 = time.time()
+i = 0
 
 while True:
     t = time.time() - t0
@@ -250,9 +249,9 @@ while True:
         msg += str(round(temp, 2))
         msg += '\n'    
         
-        print(msg,end='')
-        log.write(msg)
-        log.flush()
+        # print(msg,end='')
+        # log.write(msg)
+        # log.flush()
         
         # 嘗試發送數據到伺服器
         try:
@@ -266,6 +265,5 @@ while True:
 #         print("No valid NMEA sentence received.")
 #         # 如果在一定時間內沒有接收到數據，可以考慮重新連接串口或網路
 
-        time.sleep(1)
-
+#     time.sleep(delay)
 
