@@ -106,10 +106,10 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 ax.set_xlabel('X (meters)')
                 ax.set_ylabel('Y (meters)')
                 ax.set_zlabel('Z (meters)')
-                ax.set_title(f'3D Distance from Origin: {distance:.2f} meters')
+                ax.set_title(f'3D Distance from Origin: {distance:.4f} meters')
                 
                 # 顯示當前的 x, y, z 座標
-                ax.text2D(0.05, 0.95, f'x: {origin_x-x:.2f} m, y: {origin_y-y:.2f} m, z: {origin_z-z:.2f} m',
+                ax.text2D(0.05, 0.95, f'x: {origin_x-x:.4f} m, y: {origin_y-y:.4f} m, z: {origin_z-z:.4f} m',
                           transform=ax.transAxes)
                 
                 plt.draw()
