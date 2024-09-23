@@ -194,4 +194,5 @@ plt.title('TWD97 Y vs Time (GPS Mode=4)')
 plt.xticks(rotation=45)
 plt.legend(title='Date')
 plt.tight_layout()
-plt.show(block=False)
+plt.show()
+
