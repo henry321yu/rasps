@@ -6,6 +6,7 @@ import matplotlib.dates as mdates
 from datetime import datetime
 from pyproj import Transformer
 import numpy as np
+import time
 
 # 確認 datapath.ini 是否存在，若不存在則生成
 if not os.path.exists('datapath.ini'):
@@ -16,6 +17,7 @@ if not os.path.exists('datapath.ini'):
     with open('datapath.ini', 'w') as configfile:
         config.write(configfile)
     print("datapath.ini 已生成，請開啟並設置資料夾路徑。")
+    time.sleep(3)
     exit()
 
 # 讀取INI檔案
@@ -26,6 +28,7 @@ config.read('datapath.ini')
 folder_path = config['Paths']['folder_path']
 if folder_path == '請輸入資料夾路徑':
     print("請先在 datapath.ini 中設置資料夾路徑。")
+    time.sleep(3)
     exit()
 
 # 初始化一個空的 DataFrame 來儲存所有的資料
