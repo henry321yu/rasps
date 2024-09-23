@@ -1,12 +1,5 @@
-import configparser
 import os
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from datetime import datetime
-from pyproj import Transformer
-import numpy as np
-
+import configparser
 # 確認 datapath.ini 是否存在，若不存在則生成
 if not os.path.exists('datapath.ini'):
     print("datapath.ini 不存在，正在創建...")
@@ -17,7 +10,7 @@ if not os.path.exists('datapath.ini'):
         config.write(configfile)
     print("datapath.ini 已生成，請開啟並設置資料夾路徑。")
     input("按 Enter 鍵繼續...")  # 等待用戶按下 Enter
-    exit()
+    exit() 
 
 # 讀取INI檔案
 config = configparser.ConfigParser()
@@ -30,6 +23,16 @@ if folder_path == '請輸入資料夾路徑':
     input("按 Enter 鍵繼續...")  # 等待用戶按下 Enter
     exit()
 
+print(f"datapath : {folder_path}")
+print("importing libs for running...")
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from datetime import datetime
+from pyproj import Transformer
+import numpy as np
+
 # 初始化一個空的 DataFrame 來儲存所有的資料
 all_data = pd.DataFrame()
 
@@ -39,53 +42,62 @@ transformer = Transformer.from_crs("EPSG:4326", "EPSG:3826")
 # 用來儲存顏色的字典
 color_map = {}
 
-print("Reading data...")
+print("Reading all .txt files...")
 
-# 遍歷資料夾中的所有.txt檔案
-for filename in os.listdir(folder_path):
-    if filename.endswith(".txt"):
-        file_path = os.path.join(folder_path, filename)
-        print(f"Reading:{file_path}")
-        
-        # 提取日期
-        date_str = filename.split('_')[1]  # 取得日期部分
-        date = datetime.strptime(date_str, '%Y%m%d').date()
-        
-        # 隨機生成顏色或使用特定顏色
-        if date not in color_map:
-            color_map[date] = np.random.rand(3,)  # 隨機顏色
+try:
+    # 遍歷資料夾中的所有.txt檔案
+    for filename in os.listdir(folder_path):
+        if filename.endswith(".txt"):
+            file_path = os.path.join(folder_path, filename)
+            print(f"Reading : {file_path}")
+            
+            # 提取日期
+            date_str = filename.split('_')[1]  # 取得日期部分
+            date = datetime.strptime(date_str, '%Y%m%d').date()
+            
+            # 隨機生成顏色或使用特定顏色
+            if date not in color_map:
+                color_map[date] = np.random.rand(3,)  # 隨機顏色
 
-        # 初始化一個暫存列表來存儲數據
-        temp_data = []
-        
-        # 打開檔案逐行讀取
-        with open(file_path, 'r') as file:
-            for line in file:
-                if 'END_OF_FILE' in line:
-                    break
-                split_line = line.strip().split()
-                if len(split_line) == 9:
-                    split_line.extend(['0', '0'])  # 增加 'volt' 和 'current' 欄位為 0
-                temp_data.append(split_line)
+            # 初始化一個暫存列表來存儲數據
+            temp_data = []
+            
+            # 打開檔案逐行讀取
+            with open(file_path, 'r') as file:
+                for line in file:
+                    if 'END_OF_FILE' in line:
+                        break
+                    split_line = line.strip().split()
+                    if len(split_line) == 9:
+                        split_line.extend(['0', '0'])  # 增加 'volt' 和 'current' 欄位為 0
+                    temp_data.append(split_line)
 
-        if temp_data and len(temp_data) > 5:  # 檢查至少有5行數據
-            data = pd.DataFrame(temp_data)
-            data.columns = ['UTC+8', 'ax', 'ay', 'az', 'lat', 'lon', 'altitude', 'gps_mode', 'temperature', 'volt', 'current']
-            data['UTC+8'] = pd.to_datetime(data['UTC+8'], format='%H:%M:%S.%f', errors='coerce')
-            data = data.dropna(subset=['UTC+8'])
-            for col in data.columns[1:]:
-                data[col] = pd.to_numeric(data[col], errors='coerce')
-            data = data.dropna()
+            if temp_data and len(temp_data) > 3:  # 檢查至少有3行數據
+                data = pd.DataFrame(temp_data)
+                data.columns = ['UTC+8', 'ax', 'ay', 'az', 'lat', 'lon', 'altitude', 'gps_mode', 'temperature', 'volt', 'current']
+                data['UTC+8'] = pd.to_datetime(data['UTC+8'], format='%H:%M:%S.%f', errors='coerce')
+                data = data.dropna(subset=['UTC+8'])
+                for col in data.columns[1:]:
+                    data[col] = pd.to_numeric(data[col], errors='coerce')
+                data = data.dropna()
 
-            if len(data) > 0:
-                twd97_x, twd97_y = transformer.transform(data['lat'].values, data['lon'].values)
-                data['twd97_x'] = twd97_x
-                data['twd97_y'] = twd97_y
-                data['date'] = date
-                all_data = pd.concat([all_data, data])
-
+                if len(data) > 0:
+                    twd97_x, twd97_y = transformer.transform(data['lat'].values, data['lon'].values)
+                    data['twd97_x'] = twd97_x
+                    data['twd97_y'] = twd97_y
+                    data['date'] = date
+                    all_data = pd.concat([all_data, data])
+except:
+    input("error wrong path or files maybe...")  # 等待用戶按下 Enter
+    exit()
+    
 # 確保數據按時間順序排序
-all_data.sort_values(by='UTC+8', inplace=True)
+try:
+    all_data.sort_values(by='UTC+8', inplace=True)
+except:
+    input("error files maybe...")  # 等待用戶按下 Enter
+    exit()
+    
 all_data = all_data[all_data['current'] != 0] #刪除 current為0
 
 
@@ -196,4 +208,5 @@ plt.legend(title='Date')
 plt.tight_layout()
 plt.show()
 
+input("programe completed...")  # 等待用戶按下 Enter
 
