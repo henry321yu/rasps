@@ -7,10 +7,26 @@ from datetime import datetime
 from pyproj import Transformer
 import numpy as np
 
+# 確認 datapath.ini 是否存在，若不存在則生成
+if not os.path.exists('datapath.ini'):
+    print("datapath.ini 不存在，正在創建...")
+    config = configparser.ConfigParser()
+    config['Paths'] = {'folder_path':'請輸入資料夾路徑'}
+    
+    with open('datapath.ini', 'w') as configfile:
+        config.write(configfile)
+    print("datapath.ini 已生成，請開啟並設置資料夾路徑。")
+    exit()
+
 # 讀取INI檔案
 config = configparser.ConfigParser()
 config.read('datapath.ini')
+
+# 確認資料夾路徑是否已設置
 folder_path = config['Paths']['folder_path']
+if folder_path == '請輸入資料夾路徑':
+    print("請先在 datapath.ini 中設置資料夾路徑。")
+    exit()
 
 # 初始化一個空的 DataFrame 來儲存所有的資料
 all_data = pd.DataFrame()
@@ -21,10 +37,13 @@ transformer = Transformer.from_crs("EPSG:4326", "EPSG:3826")
 # 用來儲存顏色的字典
 color_map = {}
 
+print("Reading data...")
+
 # 遍歷資料夾中的所有.txt檔案
 for filename in os.listdir(folder_path):
     if filename.endswith(".txt"):
         file_path = os.path.join(folder_path, filename)
+        print(f"Reading:{file_path}")
         
         # 提取日期
         date_str = filename.split('_')[1]  # 取得日期部分
@@ -65,6 +84,7 @@ for filename in os.listdir(folder_path):
 
 # 確保數據按時間順序排序
 all_data.sort_values(by='UTC+8', inplace=True)
+all_data = all_data[all_data['current'] != 0] #刪除 current為0
 
 
 # 繪製圖表，根據日期使用不同顏色
@@ -74,7 +94,7 @@ for date, color in color_map.items():
     date_data = all_data[all_data['date'] == date]
     plt.plot(date_data['UTC+8'], date_data['volt'], '.', label=str(date), color=color)
 
-plt.ylim(5, 20)
+plt.ylim(10, 15)
 plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
 plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
 plt.xlabel('Time (UTC+8)')
@@ -126,6 +146,7 @@ for date, color in color_map.items():
     date_data = all_data[all_data['date'] == date]
     plt.plot(date_data['UTC+8'], date_data['temperature'], '.', label=str(date), color=color)
 
+plt.ylim(10, 60)
 plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
 plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
 plt.xlabel('Time (UTC+8)')
