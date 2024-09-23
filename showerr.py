@@ -16,7 +16,7 @@ if not os.path.exists('datapath.ini'):
     with open('datapath.ini', 'w') as configfile:
         config.write(configfile)
     print("datapath.ini 已生成，請開啟並設置資料夾路徑。")
-    sleep(3)
+    input("按 Enter 鍵繼續...")  # 等待用戶按下 Enter
     exit()
 
 # 讀取INI檔案
@@ -27,7 +27,7 @@ config.read('datapath.ini')
 folder_path = config['Paths']['folder_path']
 if folder_path == '請輸入資料夾路徑':
     print("請先在 datapath.ini 中設置資料夾路徑。")
-    sleep(3)
+    input("按 Enter 鍵繼續...")  # 等待用戶按下 Enter
     exit()
 
 # 初始化一個空的 DataFrame 來儲存所有的資料
@@ -195,4 +195,5 @@ plt.xticks(rotation=45)
 plt.legend(title='Date')
 plt.tight_layout()
 plt.show()
+
 
