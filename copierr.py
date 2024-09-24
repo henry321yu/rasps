@@ -49,10 +49,13 @@ if not os.path.exists(source_folder):
     input("press enter to exit...")
     exit()
 
-input(f"按下 enter 確認複製所有檔案任何來自 {source_folder} 新檔案檔案到 {destination_folder}...")
+input(f"按下 enter 確認複製所有自 {source_folder} 確認到的新檔案到 {destination_folder}...")
+print('\n')
 
 # 複製來源資料夾的所有檔案到目標資料夾
 def copy_files(source, destination):
+    global fileN,folderN
+    fileN=folderN=0
     for root, dirs, files in os.walk(source):
         relative_path = os.path.relpath(root, source)  # 相對路徑
         dest_dir = os.path.join(destination, relative_path)
@@ -60,6 +63,7 @@ def copy_files(source, destination):
         # 如果目標資料夾不存在，則建立該資料夾        
         if not os.path.exists(dest_dir):
             os.makedirs(dest_dir)
+            folderN+=1
             print(f'創建資料夾 {dest_dir}')
 
         # 複製檔案
@@ -69,13 +73,16 @@ def copy_files(source, destination):
 
             # 如果檔案不存在或來源檔案更新，則進行複製
             if not os.path.exists(destination_file) or os.path.getmtime(source_file) > os.path.getmtime(destination_file):
+                print(f'複製 {file_name} 到 {destination_file}')
                 shutil.copy2(source_file, destination_file)
-                print(f'檔案 {file_name} 已被複製到 {destination_file}')
+                fileN+=1
 
 # 初始複製來源資料夾內容
 try:
     copy_files(source_folder, destination_folder)
-    print(f"已複製任何來自 {source_folder} 新檔案檔案到 {destination_folder}")
+    print('\n')
+    print(f"已複製任何來自 {source_folder} 確認到的新檔案到 {destination_folder}")
+    print(f"共複製 : {folderN} 個資料夾 , {fileN} 個檔案")
 except Exception as e:
     print(f"複製檔案時發生錯誤：{e}")
     
