@@ -9,22 +9,29 @@ if not os.path.exists('datapath.ini'):
     with open('datapath.ini', 'w') as configfile:
         config.write(configfile)
     print("datapath.ini 已生成，請開啟並設置資料夾路徑。")
-    input("按 Enter 鍵繼續...")  # 等待用戶按下 Enter
+    input("press enter to exit...")
     exit() 
 
 # 讀取INI檔案
 config = configparser.ConfigParser()
-config.read('datapath.ini')
+
+try:
+    config.read('datapath.ini')
+except:
+    print("datapath.ini error....")
+    input("press enter to exit...")
+    exit() 
+    
 
 # 確認資料夾路徑是否已設置
 folder_path = config['Paths']['folder_path']
 if folder_path == '請輸入資料夾路徑':
     print("請先在 datapath.ini 中設置資料夾路徑。")
-    input("按 Enter 鍵繼續...")  # 等待用戶按下 Enter
+    input("press enter to exit...")
     exit()
 
 print(f"datapath : {folder_path}")
-print("importing libs for running...")
+print("importing library for running...")
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -49,7 +56,7 @@ try:
     for filename in os.listdir(folder_path):
         if filename.endswith(".txt"):
             file_path = os.path.join(folder_path, filename)
-            print(f"Reading : {file_path}")
+            print(f"loading : {file_path}")
             
             # 提取日期
             date_str = filename.split('_')[1]  # 取得日期部分
@@ -88,17 +95,21 @@ try:
                     data['date'] = date
                     all_data = pd.concat([all_data, data])
 except:
-    input("error wrong path or files maybe...")  # 等待用戶按下 Enter
+    print("error wrong path or files maybe...")
+    input("press enter to exit...")
     exit()
     
 # 確保數據按時間順序排序
 try:
     all_data.sort_values(by='UTC+8', inplace=True)
 except:
-    input("error files maybe...")  # 等待用戶按下 Enter
+    print("error files maybe...")
+    input("press enter to exit...")
     exit()
     
 all_data = all_data[all_data['current'] != 0] #刪除 current為0
+
+print("plotting...")
 
 
 # 繪製圖表，根據日期使用不同顏色
@@ -208,5 +219,6 @@ plt.legend(title='Date')
 plt.tight_layout()
 plt.show()
 
-input("programe completed...")  # 等待用戶按下 Enter
+print("program completed...")  # 等待用戶按下 Enter
+input("press enter to exit...")
 
