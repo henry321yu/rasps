@@ -16,11 +16,12 @@ if not os.path.exists('datapath.ini'):
 config = configparser.ConfigParser()
 
 try:
-    config.read('datapath.ini')
-except:
-    print("datapath.ini error....")
+    with open('datapath.ini', 'r', encoding='utf-8') as f:
+        config.read_file(f)
+except Exception as e:
+    print(f"datapath.ini error: {e}")
     input("press enter to exit...")
-    exit() 
+    exit()
     
 
 # 確認資料夾路徑是否已設置
