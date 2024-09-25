@@ -125,9 +125,9 @@ all_data = all_data[all_data['current'] != 0]  # 刪除 current 為 0
 all_data = all_data[all_data['volt'] != 0]  # 刪除 volt 為 0
 gps_mode_4_data = all_data[all_data['gps_mode'] == 4] # gps_mode 為 4 的資料
 
-def plot_Voltage():
+def plot_voltage():
     # 繪製 Voltage 圖表
-    plt.figure(figsize=(figuresize[0], figuresize[1]), num='Voltage')
+    plt.figure(figsize=(figuresize[0], figuresize[1]), num='voltage')
 
     for date, color in color_map.items():
         date_data = all_data[all_data['date'] == date]
@@ -136,17 +136,17 @@ def plot_Voltage():
     plt.ylim(10, 15)
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
     plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
-    plt.xlabel('Time(UTC+8)')
-    plt.ylabel('Voltage(V)')
-    plt.title('Voltage')
+    plt.xlabel('time(UTC+8)')
+    plt.ylabel('voltage(V)')
+    plt.title('voltage')
     plt.xticks(rotation=45)
-    plt.legend(title='Date')
+    plt.legend(title='cate')
     plt.tight_layout()
     plt.show(block=False)
 
-def plot_Current():
+def plot_current():
     # 繪製 current 圖表
-    plt.figure(figsize=(figuresize[0], figuresize[1]), num='Current')
+    plt.figure(figsize=(figuresize[0], figuresize[1]), num='current')
 
     for date, color in color_map.items():
         date_data = all_data[all_data['date'] == date]
@@ -154,17 +154,17 @@ def plot_Current():
 
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
     plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
-    plt.xlabel('Time(UTC+8)')
-    plt.ylabel('Current(A)')
-    plt.title('Current')
+    plt.xlabel('time(UTC+8)')
+    plt.ylabel('current(A)')
+    plt.title('current')
     plt.xticks(rotation=45)
-    plt.legend(title='Date')
+    plt.legend(title='date')
     plt.tight_layout()
     plt.show(block=False)
 
-def plot_Temperature():
+def plot_temperature():
     # 繪製 temperature 圖表
-    plt.figure(figsize=(figuresize[0], figuresize[1]), num='Temperature')
+    plt.figure(figsize=(figuresize[0], figuresize[1]), num='temperature')
 
     for date, color in color_map.items():
         date_data = all_data[all_data['date'] == date]
@@ -173,17 +173,17 @@ def plot_Temperature():
     plt.ylim(10, 60)
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
     plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
-    plt.xlabel('Time (UTC+8)')
-    plt.ylabel('Temperature(C)')
-    plt.title('Temperature')
+    plt.xlabel('time (UTC+8)')
+    plt.ylabel('temperature(C)')
+    plt.title('temperature')
     plt.xticks(rotation=45)
-    plt.legend(title='Date')
+    plt.legend(title='date')
     plt.tight_layout()
     plt.show(block=False)
 
-def plot_GPS_Mode():
+def plot_gps_mode():
     # 繪製 gps_mode 圖表
-    plt.figure(figsize=(figuresize[0], figuresize[1]), num='GPS Mode')
+    plt.figure(figsize=(figuresize[0], figuresize[1]), num='gps mode')
 
     for date, color in color_map.items():
         date_data = all_data[all_data['date'] == date]
@@ -191,17 +191,17 @@ def plot_GPS_Mode():
 
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
     plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
-    plt.xlabel('Time(UTC+8)')
-    plt.ylabel('GPS Mode')
-    plt.title('GPS Mode vs Time')
+    plt.xlabel('time(UTC+8)')
+    plt.ylabel('gps mode')
+    plt.title('gps mode')
     plt.xticks(rotation=45)
-    plt.legend(title='Date')
+    plt.legend(title='date')
     plt.tight_layout()
     plt.show(block=False)
 
-def plot_TWD97_X():
+def plot_TWD97_x():
     # 繪製 twd97_x vs UTC+8 (僅限 gps_mode 為 4 的數據)
-    plt.figure(figsize=(figuresize[0], figuresize[1]), num='TWD97 X')
+    plt.figure(figsize=(figuresize[0], figuresize[1]), num='TWD97 x')
 
     for date, color in color_map.items():
         date_gps_data = gps_mode_4_data[gps_mode_4_data['date'] == date]
@@ -209,17 +209,17 @@ def plot_TWD97_X():
 
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
     plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
-    plt.xlabel('Time(UTC+8)')
-    plt.ylabel('TWD97 X(m)')
-    plt.title('TWD97 X')
+    plt.xlabel('time(UTC+8)')
+    plt.ylabel('TWD97 x(m)')
+    plt.title('TWD97 x')
     plt.xticks(rotation=45)
-    plt.legend(title='Date')
+    plt.legend(title='date')
     plt.tight_layout()
     plt.show(block=False)
 
-def plot_TWD97_Y():
+def plot_TWD97_y():
     # 繪製 twd97_y vs UTC+8 (僅限 gps_mode 為 4 的數據)
-    plt.figure(figsize=(figuresize[0], figuresize[1]), num='TWD97 Y')
+    plt.figure(figsize=(figuresize[0], figuresize[1]), num='TWD97 y')
 
     for date, color in color_map.items():
         date_gps_data = gps_mode_4_data[gps_mode_4_data['date'] == date]
@@ -227,17 +227,17 @@ def plot_TWD97_Y():
 
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
     plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
-    plt.xlabel('Time(UTC+8)')
-    plt.ylabel('TWD97 Y(m)')
-    plt.title('TWD97 Y')
+    plt.xlabel('time(UTC+8)')
+    plt.ylabel('TWD97 y(m)')
+    plt.title('TWD97 y')
     plt.xticks(rotation=45)
-    plt.legend(title='Date')
+    plt.legend(title='date')
     plt.tight_layout()
     plt.show(block=False)
 
-def plot_Altitude():
+def plot_altitude():
     # 繪製 altitude 圖表
-    plt.figure(figsize=(figuresize[0], figuresize[1]), num='Altitude')
+    plt.figure(figsize=(figuresize[0], figuresize[1]), num='altitude')
 
     for date, color in color_map.items():
         date_gps_data = gps_mode_4_data[gps_mode_4_data['date'] == date]
@@ -245,32 +245,32 @@ def plot_Altitude():
 
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
     plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
-    plt.xlabel('Time(UTC+8)')
+    plt.xlabel('time(UTC+8)')
     plt.ylabel('altitude(m)')
     plt.title('altitude')
     plt.xticks(rotation=45)
-    plt.legend(title='Date')
+    plt.legend(title='date')
     plt.tight_layout()
     plt.show(block=False)
 
-def plot_TWD97_XY():
+def plot_TWD97_xy():
     # 繪製 twd97_y vs twd97_y 圖表
-    plt.figure(figsize=(figuresize[0], figuresize[1]), num='TWD97 X vs TWD97 Y')
+    plt.figure(figsize=(figuresize[0], figuresize[1]), num='TWD97 x  vs  TWD97 y')
 
     for date, color in color_map.items():
         date_gps_data = gps_mode_4_data[gps_mode_4_data['date'] == date]
         plt.plot(date_gps_data['twd97_x'], date_gps_data['twd97_y'], '.', label=str(date), color=color, markersize=plotsize)
 
-    plt.xlabel('TWD97 X(m)')
-    plt.ylabel('TWD97 Y(m)')
-    plt.title('TWD97 X vs TWD97 Y')
-    plt.legend(title='Date')
+    plt.xlabel('TWD97 x(m)')
+    plt.ylabel('TWD97 y(m)')
+    plt.title('TWD97 x  vs  TWD97 y')
+    plt.legend(title='date')
     plt.tight_layout()
     plt.show(block=False)
 
-def plot_Accelerometer_X():
+def plot_accelerometer_x():
     # 繪製 accelerometer x 圖表
-    plt.figure(figsize=(figuresize[0], figuresize[1]), num='Accelerometer Y')
+    plt.figure(figsize=(figuresize[0], figuresize[1]), num='accelerometer x')
 
     for date, color in color_map.items():
         date_data = all_data[all_data['date'] == date]
@@ -278,17 +278,17 @@ def plot_Accelerometer_X():
 
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
     plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
-    plt.xlabel('Time(UTC+8)')
-    plt.ylabel('ax')
-    plt.title('Accelerometer X')
+    plt.xlabel('time(UTC+8)')
+    plt.ylabel('ax(G)')
+    plt.title('accelerometer x')
     plt.xticks(rotation=45)
-    plt.legend(title='Date')
+    plt.legend(title='date')
     plt.tight_layout()
     plt.show(block=False)
 
-def plot_Accelerometer_Y():
+def plot_accelerometer_y():
     # 繪製 accelerometer y 圖表
-    plt.figure(figsize=(figuresize[0], figuresize[1]), num='Accelerometer Y')
+    plt.figure(figsize=(figuresize[0], figuresize[1]), num='accelerometer y')
 
     for date, color in color_map.items():
         date_data = all_data[all_data['date'] == date]
@@ -296,17 +296,17 @@ def plot_Accelerometer_Y():
 
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
     plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
-    plt.xlabel('Time(UTC+8)')
-    plt.ylabel('ay')
-    plt.title('Accelerometer Y')
+    plt.xlabel('time(UTC+8)')
+    plt.ylabel('ay(G)')
+    plt.title('accelerometer y')
     plt.xticks(rotation=45)
-    plt.legend(title='Date')
+    plt.legend(title='date')
     plt.tight_layout()
     plt.show(block=False)
 
-def plot_Accelerometer_Z():
+def plot_accelerometer_z():
     # 繪製 accelerometer z 圖表
-    plt.figure(figsize=(figuresize[0], figuresize[1]), num='Accelerometer Z')
+    plt.figure(figsize=(figuresize[0], figuresize[1]), num='accelerometer z')
 
     for date, color in color_map.items():
         date_data = all_data[all_data['date'] == date]
@@ -314,49 +314,88 @@ def plot_Accelerometer_Z():
 
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
     plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
-    plt.xlabel('Time(UTC+8)')
-    plt.ylabel('az')
-    plt.title('Accelerometer Z')
+    plt.xlabel('time(UTC+8)')
+    plt.ylabel('az(G)')
+    plt.title('accelerometer z')
     plt.xticks(rotation=45)
-    plt.legend(title='Date')
+    plt.legend(title='date')
     plt.tight_layout()
-    plt.show()
+    plt.show(block=False)
 
     
+# 開啟所有 plot
+def open_all_plots():
+    print("opening all plots...")
+    plot_voltage()
+    plot_current()
+    plot_temperature()
+    plot_gps_mode()
+    plot_altitude()
+    plot_TWD97_x()
+    plot_TWD97_y()
+    plot_TWD97_xy()
+    plot_accelerometer_x()
+    plot_accelerometer_y()
+    plot_accelerometer_z()
 
+# 關閉所有 plot (可以是清除所有圖表，這裡是示範)
+def close_all_plots():
+    print("Closing all plots...")
+    plt.close('all')
+
+# 關閉程式
+def close_program():
+    root.quit()  # 結束 tkinter 事件循環
+    root.destroy()  # 銷毀窗口，完全退出程式
+    print("Program closed...")
 
 # 建立 GUI 介面
 def create_gui():
+    print("create gui...")
+    global root
     root = tk.Tk()
     root.title("Data Plotter")
 
     # 設定 GUI 大小
-    root.geometry("250x550")
+    root.geometry("240x580")
 
     tk.Label(root, text="選擇要繪製的圖表:", font=("Arial", 10)).pack(pady=10)
 
     # 設定按鈕樣式
     button_style = {
         'padx': 10,
-        'pady': 5,
+        'pady': 1,
         'font': ("Arial", 8),
         'width': 15,  # 設定按鈕寬度
-        'height': 0   # 設定按鈕高度
+        'height': 1   # 設定按鈕高度
     }
+    yy=4 #按鈕高度距
+    
 
-    tk.Button(root, text="voltage", command=plot_Voltage, **button_style).pack(pady=5)
-    tk.Button(root, text="current", command=plot_Current, **button_style).pack(pady=5)
-    tk.Button(root, text="temperature", command=plot_Temperature, **button_style).pack(pady=5)
-    tk.Button(root, text="gps_mode", command=plot_GPS_Mode, **button_style).pack(pady=5)
-    tk.Button(root, text="altitude", command=plot_Altitude, **button_style).pack(pady=5)
-    tk.Button(root, text="TWD97_X", command=plot_TWD97_X, **button_style).pack(pady=5)
-    tk.Button(root, text="TWD97_Y", command=plot_TWD97_Y, **button_style).pack(pady=5)
-    tk.Button(root, text="TWD97_XY", command=plot_TWD97_XY, **button_style).pack(pady=5)
-    tk.Button(root, text="accelerometer_x", command=plot_Accelerometer_X, **button_style).pack(pady=5)
-    tk.Button(root, text="accelerometer_y", command=plot_Accelerometer_Y, **button_style).pack(pady=5)
-    tk.Button(root, text="accelerometer_z", command=plot_Accelerometer_Z, **button_style).pack(pady=5)
+    tk.Button(root, text="voltage", command=plot_voltage, **button_style).pack(pady=yy)
+    tk.Button(root, text="current", command=plot_current, **button_style).pack(pady=yy)
+    tk.Button(root, text="temperature", command=plot_temperature, **button_style).pack(pady=yy)
+    tk.Button(root, text="gps_mode", command=plot_gps_mode, **button_style).pack(pady=yy)
+    tk.Button(root, text="altitude", command=plot_altitude, **button_style).pack(pady=yy)
+    tk.Button(root, text="TWD97_x", command=plot_TWD97_x, **button_style).pack(pady=yy)
+    tk.Button(root, text="TWD97_y", command=plot_TWD97_y, **button_style).pack(pady=yy)
+    tk.Button(root, text="TWD97_xy", command=plot_TWD97_xy, **button_style).pack(pady=yy)
+    tk.Button(root, text="accelerometer_x", command=plot_accelerometer_x, **button_style).pack(pady=yy)
+    tk.Button(root, text="accelerometer_y", command=plot_accelerometer_y, **button_style).pack(pady=yy)
+    tk.Button(root, text="accelerometer_z", command=plot_accelerometer_z, **button_style).pack(pady=yy)
+    
+    tk.Label(root, text="").pack(pady=yy)  # 空行
+    # 開啟和關閉所有 plot 的按鈕
+    tk.Button(root, text="開啟所有圖表", command=open_all_plots, bg="yellow", fg="black", **button_style).pack(pady=yy)
+    tk.Button(root, text="關閉所有圖表", command=close_all_plots, bg="lightblue", fg="black", **button_style).pack(pady=yy)
+    
+    tk.Label(root, text="").pack(pady=yy)  # 空行    
+    tk.Button(root, text="EXIT", command=close_program, bg="grey", fg="black", **button_style).pack(pady=yy)
+
 
     root.mainloop()
 
 # 啟動 GUI
 create_gui()
+
+exit() 
