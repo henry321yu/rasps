@@ -129,7 +129,7 @@ print("plotting...")
 
 # 繪製圖表，根據日期使用不同顏色
 # 繪製 Voltage 圖表
-plt.figure(figsize=(figuresize[0], figuresize[1]))
+plt.figure(figsize=(figuresize[0], figuresize[1]), num='Voltage')
 
 for date, color in color_map.items():
     date_data = all_data[all_data['date'] == date]
@@ -147,7 +147,7 @@ plt.tight_layout()
 plt.show(block=False)
 
 # 繪製 current 圖表
-plt.figure(figsize=(figuresize[0], figuresize[1]))
+plt.figure(figsize=(figuresize[0], figuresize[1]), num='Current')
 
 for date, color in color_map.items():
     date_data = all_data[all_data['date'] == date]
@@ -164,7 +164,7 @@ plt.tight_layout()
 plt.show(block=False)
 
 # 繪製 temperature 圖表
-plt.figure(figsize=(figuresize[0], figuresize[1]))
+plt.figure(figsize=(figuresize[0], figuresize[1]), num='Temperature')
 
 for date, color in color_map.items():
     date_data = all_data[all_data['date'] == date]
@@ -182,7 +182,7 @@ plt.tight_layout()
 plt.show(block=False)
 
 # 繪製 gps_mode 圖表
-plt.figure(figsize=(figuresize[0], figuresize[1]))
+plt.figure(figsize=(figuresize[0], figuresize[1]), num='GPS Mode')
 
 for date, color in color_map.items():
     date_data = all_data[all_data['date'] == date]
@@ -202,7 +202,7 @@ plt.show(block=False)
 gps_mode_4_data = all_data[all_data['gps_mode'] == 4]
 
 # 繪製 twd97_x vs UTC+8 (僅限 gps_mode 為 4 的數據)
-plt.figure(figsize=(figuresize[0], figuresize[1]))
+plt.figure(figsize=(figuresize[0], figuresize[1]), num='TWD97 X')
 
 for date, color in color_map.items():
     date_gps_data = gps_mode_4_data[gps_mode_4_data['date'] == date]
@@ -219,7 +219,7 @@ plt.tight_layout()
 plt.show(block=False)
 
 # 繪製 twd97_y vs UTC+8 (僅限 gps_mode 為 4 的數據)
-plt.figure(figsize=(figuresize[0], figuresize[1]))
+plt.figure(figsize=(figuresize[0], figuresize[1]), num='TWD97 Y')
 
 for date, color in color_map.items():
     date_gps_data = gps_mode_4_data[gps_mode_4_data['date'] == date]
@@ -236,7 +236,7 @@ plt.tight_layout()
 plt.show(block=False)
 
 # 繪製 altitude 圖表
-plt.figure(figsize=(figuresize[0], figuresize[1]))
+plt.figure(figsize=(figuresize[0], figuresize[1]), num='altitude')
 
 for date, color in color_map.items():
     date_gps_data = gps_mode_4_data[gps_mode_4_data['date'] == date]
@@ -253,7 +253,7 @@ plt.tight_layout()
 plt.show(block=False)
 
 # 繪製 twd97_y vs twd97_y 圖表
-plt.figure(figsize=(figuresize[0], figuresize[1]))
+plt.figure(figsize=(figuresize[0], figuresize[1]), num='TWD97 X vs TWD97 Y')
 
 for date, color in color_map.items():
     date_gps_data = gps_mode_4_data[gps_mode_4_data['date'] == date]
