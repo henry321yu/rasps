@@ -60,10 +60,6 @@ if not exist "%source_folder%" (
     exit /b
 )
 
-echo 確認複製檔案? ...
-echo.
-pause
-
 echo 開始複製檔案 ...
 echo.
 set "fileN=0"
@@ -98,5 +94,7 @@ for /r "%source_folder%" %%G in (*) do (
 echo.
 echo 已複製來自 "%source_folder%" 的新檔案到 "%destination_folder%"
 echo 共創建 %folderN% 個資料夾, %fileN% 個檔案
-pause
-exit /b
+echo.
+echo 程序將在 5 秒後自動關閉...或按任意鍵關閉...
+timeout /t 5
+exit
