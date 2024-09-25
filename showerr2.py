@@ -59,6 +59,9 @@ for j in range(100):
     g = ((j + num[1]) % num[1]) / num[1]
     b = ((j + num[2]) % num[0]) / num[0]
     colors.append((r, g, b))
+    
+figuresize=[7,4]
+plotsize=3
 
 print("Reading all .txt files...")
 
@@ -125,11 +128,12 @@ print("plotting...")
 
 
 # 繪製圖表，根據日期使用不同顏色
-plt.figure(figsize=(10, 6))
+# 繪製 Voltage 圖表
+plt.figure(figsize=(figuresize[0], figuresize[1]))
 
 for date, color in color_map.items():
     date_data = all_data[all_data['date'] == date]
-    plt.plot(date_data['UTC+8'], date_data['volt'], '.', label=str(date), color=color)
+    plt.plot(date_data['UTC+8'], date_data['volt'], '.', label=str(date), color=color, markersize=plotsize)
 
 plt.ylim(10, 15)
 plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
@@ -143,11 +147,11 @@ plt.tight_layout()
 plt.show(block=False)
 
 # 繪製 current 圖表
-plt.figure(figsize=(10, 6))
+plt.figure(figsize=(figuresize[0], figuresize[1]))
 
 for date, color in color_map.items():
     date_data = all_data[all_data['date'] == date]
-    plt.plot(date_data['UTC+8'], date_data['current'], '.', label=str(date), color=color)
+    plt.plot(date_data['UTC+8'], date_data['current'], '.', label=str(date), color=color, markersize=plotsize)
 
 plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
 plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
@@ -159,29 +163,12 @@ plt.legend(title='Date')
 plt.tight_layout()
 plt.show(block=False)
 
-# 繪製 gps_mode 圖表
-plt.figure(figsize=(10, 6))
-
-for date, color in color_map.items():
-    date_data = all_data[all_data['date'] == date]
-    plt.plot(date_data['UTC+8'], date_data['gps_mode'], '.', label=str(date), color=color)
-
-plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
-plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
-plt.xlabel('Time (UTC+8)')
-plt.ylabel('GPS Mode')
-plt.title('GPS Mode vs Time')
-plt.xticks(rotation=45)
-plt.legend(title='Date')
-plt.tight_layout()
-plt.show(block=False)
-
 # 繪製 temperature 圖表
-plt.figure(figsize=(10, 6))
+plt.figure(figsize=(figuresize[0], figuresize[1]))
 
 for date, color in color_map.items():
     date_data = all_data[all_data['date'] == date]
-    plt.plot(date_data['UTC+8'], date_data['temperature'], '.', label=str(date), color=color)
+    plt.plot(date_data['UTC+8'], date_data['temperature'], '.', label=str(date), color=color, markersize=plotsize)
 
 plt.ylim(10, 60)
 plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
@@ -194,15 +181,32 @@ plt.legend(title='Date')
 plt.tight_layout()
 plt.show(block=False)
 
+# 繪製 gps_mode 圖表
+plt.figure(figsize=(figuresize[0], figuresize[1]))
+
+for date, color in color_map.items():
+    date_data = all_data[all_data['date'] == date]
+    plt.plot(date_data['UTC+8'], date_data['gps_mode'], '.', label=str(date), color=color, markersize=plotsize)
+
+plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
+plt.xlabel('Time (UTC+8)')
+plt.ylabel('GPS Mode')
+plt.title('GPS Mode vs Time')
+plt.xticks(rotation=45)
+plt.legend(title='Date')
+plt.tight_layout()
+plt.show(block=False)
+
 # 只選擇 gps_mode 為 4 的資料
 gps_mode_4_data = all_data[all_data['gps_mode'] == 4]
 
 # 繪製 twd97_x vs UTC+8 (僅限 gps_mode 為 4 的數據)
-plt.figure(figsize=(10, 6))
+plt.figure(figsize=(figuresize[0], figuresize[1]))
 
 for date, color in color_map.items():
     date_gps_data = gps_mode_4_data[gps_mode_4_data['date'] == date]
-    plt.plot(date_gps_data['UTC+8'], date_gps_data['twd97_x'], '.', label=str(date), color=color)
+    plt.plot(date_gps_data['UTC+8'], date_gps_data['twd97_x'], '.', label=str(date), color=color, markersize=plotsize)
 
 plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
 plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
@@ -215,11 +219,11 @@ plt.tight_layout()
 plt.show(block=False)
 
 # 繪製 twd97_y vs UTC+8 (僅限 gps_mode 為 4 的數據)
-plt.figure(figsize=(10, 6))
+plt.figure(figsize=(figuresize[0], figuresize[1]))
 
 for date, color in color_map.items():
     date_gps_data = gps_mode_4_data[gps_mode_4_data['date'] == date]
-    plt.plot(date_gps_data['UTC+8'], date_gps_data['twd97_y'], '.', label=str(date), color=color)
+    plt.plot(date_gps_data['UTC+8'], date_gps_data['twd97_y'], '.', label=str(date), color=color, markersize=plotsize)
 
 plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
 plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
@@ -232,35 +236,32 @@ plt.tight_layout()
 plt.show(block=False)
 
 # 繪製 altitude 圖表
-plt.figure(figsize=(10, 6))
+plt.figure(figsize=(figuresize[0], figuresize[1]))
 
 for date, color in color_map.items():
     date_gps_data = gps_mode_4_data[gps_mode_4_data['date'] == date]
-    plt.plot(date_gps_data['UTC+8'], date_gps_data['alt'], '.', label=str(date), color=color)
+    plt.plot(date_gps_data['UTC+8'], date_gps_data['alt'], '.', label=str(date), color=color, markersize=plotsize)
 
 plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
 plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
 plt.xlabel('Time (UTC+8)')
 plt.ylabel('altitude')
-plt.title('altitude vs Time')
+plt.title('altitude vs Time (GPS Mode=4)')
 plt.xticks(rotation=45)
 plt.legend(title='Date')
 plt.tight_layout()
 plt.show(block=False)
 
 # 繪製 twd97_y vs twd97_y 圖表
-plt.figure(figsize=(10, 6))
+plt.figure(figsize=(figuresize[0], figuresize[1]))
 
 for date, color in color_map.items():
     date_gps_data = gps_mode_4_data[gps_mode_4_data['date'] == date]
-    plt.plot(date_gps_data['twd97_x'], date_gps_data['twd97_y'], '.', label=str(date), color=color)
+    plt.plot(date_gps_data['twd97_x'], date_gps_data['twd97_y'], '.', label=str(date), color=color, markersize=plotsize)
 
-plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
-plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
 plt.xlabel('TWD97 X')
 plt.ylabel('TWD97 Y')
 plt.title('TWD97 X vs TWD97 Y (GPS Mode=4)')
-plt.xticks(rotation=45)
 plt.legend(title='Date')
 plt.tight_layout()
 plt.show()
