@@ -360,9 +360,6 @@ def close_program():
     root.destroy()  # 銷毀窗口，完全退出程式
     print("Program closed...")
 
-global Y
-Y = 1987
-
 # 建立 GUI 介面
 def create_gui():
     print("create gui...")
