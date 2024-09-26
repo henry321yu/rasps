@@ -137,6 +137,7 @@ all_data = all_data[all_data['volt'] != 0]  # 刪除 volt 為 0
 gps_mode_4_data = all_data[all_data['gps_mode'] == 4] # gps_mode 為 4 的資料
 
 def plot_voltage():
+    print("plot voltage...")
     # 繪製 Voltage 圖表
     plt.figure(figsize=(figuresize[0], figuresize[1]), num='voltage')
 
@@ -156,6 +157,7 @@ def plot_voltage():
     plt.show(block=False)
 
 def plot_current():
+    print("plot current...")
     # 繪製 current 圖表
     plt.figure(figsize=(figuresize[0], figuresize[1]), num='current')
 
@@ -174,6 +176,7 @@ def plot_current():
     plt.show(block=False)
 
 def plot_temperature():
+    print("plot temperature...")
     # 繪製 temperature 圖表
     plt.figure(figsize=(figuresize[0], figuresize[1]), num='temperature')
 
@@ -193,6 +196,7 @@ def plot_temperature():
     plt.show(block=False)
 
 def plot_gps_mode():
+    print("plot gps mode...")
     # 繪製 gps_mode 圖表
     plt.figure(figsize=(figuresize[0], figuresize[1]), num='gps mode')
 
@@ -211,6 +215,7 @@ def plot_gps_mode():
     plt.show(block=False)
 
 def plot_TWD97_x():
+    print("plot TWD97 x...")
     # 繪製 twd97_x vs UTC+8 (僅限 gps_mode 為 4 的數據)
     plt.figure(figsize=(figuresize[0], figuresize[1]), num='TWD97 x')
 
@@ -229,6 +234,7 @@ def plot_TWD97_x():
     plt.show(block=False)
 
 def plot_TWD97_y():
+    print("plot TWD97 y...")
     # 繪製 twd97_y vs UTC+8 (僅限 gps_mode 為 4 的數據)
     plt.figure(figsize=(figuresize[0], figuresize[1]), num='TWD97 y')
 
@@ -247,6 +253,7 @@ def plot_TWD97_y():
     plt.show(block=False)
 
 def plot_altitude():
+    print("plot altitude...")
     # 繪製 altitude 圖表
     plt.figure(figsize=(figuresize[0], figuresize[1]), num='altitude')
 
@@ -265,6 +272,7 @@ def plot_altitude():
     plt.show(block=False)
 
 def plot_TWD97_xy():
+    print("plot TWD97 xy...")
     # 繪製 twd97_y vs twd97_y 圖表
     plt.figure(figsize=(figuresize[0], figuresize[1]), num='TWD97 x  vs  TWD97 y')
 
@@ -280,6 +288,7 @@ def plot_TWD97_xy():
     plt.show(block=False)
 
 def plot_accelerometer_x():
+    print("plot accelerometer x...")
     # 繪製 accelerometer x 圖表
     plt.figure(figsize=(figuresize[0], figuresize[1]), num='accelerometer x')
 
@@ -298,6 +307,7 @@ def plot_accelerometer_x():
     plt.show(block=False)
 
 def plot_accelerometer_y():
+    print("plot accelerometer y...")
     # 繪製 accelerometer y 圖表
     plt.figure(figsize=(figuresize[0], figuresize[1]), num='accelerometer y')
 
@@ -316,6 +326,7 @@ def plot_accelerometer_y():
     plt.show(block=False)
 
 def plot_accelerometer_z():
+    print("plot accelerometer z...")
     # 繪製 accelerometer z 圖表
     plt.figure(figsize=(figuresize[0], figuresize[1]), num='accelerometer z')
 
