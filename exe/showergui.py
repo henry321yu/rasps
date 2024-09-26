@@ -62,11 +62,14 @@ plotsize=3
 
 print("Reading all .txt files...")
 
-try:
+try:    
+    global fileN,fileDN,dateN,sampleN
+    fileN=fileDN=dateN=sampleN=0
     # 遍歷資料夾中的所有.txt檔案
     for filename in os.listdir(folder_path):
         if filename.endswith(".txt"):
             file_path = os.path.join(folder_path, filename)
+            fileN+=1
             print(f"loading : {file_path}")
             
             # 提取日期
@@ -77,6 +80,7 @@ try:
             if date not in color_map:
                 color_map[date] = colors[color_index % len(colors)]  # 隨機顏色
                 color_index += 1
+                dateN+=1
 
             # 初始化一個暫存列表來存儲數據
             temp_data = []
@@ -89,7 +93,7 @@ try:
                     split_line = line.strip().split()
                     if len(split_line) == 9:
                         split_line.extend(['0', '0'])  # 增加 'volt' 和 'current' 欄位為 0
-                    temp_data.append(split_line)
+                    temp_data.append(split_line)      
 
             if temp_data and len(temp_data) > 3:  # 檢查至少有3行數據
                 data = pd.DataFrame(temp_data)
@@ -97,7 +101,7 @@ try:
                 data['UTC+8'] = pd.to_datetime(data['UTC+8'], format='%H:%M:%S.%f', errors='coerce')
                 data = data.dropna(subset=['UTC+8'])
                 for col in data.columns[1:]:
-                    data[col] = pd.to_numeric(data[col], errors='coerce')
+                    data[col] = pd.to_numeric(data[col], errors='coerce')     
                 data = data.dropna()
 
                 if len(data) > 0:
@@ -106,6 +110,12 @@ try:
                     data['twd97_y'] = twd97_y
                     data['date'] = date
                     all_data = pd.concat([all_data, data])
+                    fileDN+=1
+                    for _ in range(len(data)):
+                        sampleN+=1
+            else:
+                print(f"Error reading {file_path}")
+                
 except Exception as e:
     print(f"Error reading files: {e}")
     input("press enter to exit...")
@@ -120,6 +130,7 @@ except Exception as e:
     exit()
 
 print("finish loading...")
+print(f"{fileN} 個檔案 , 共讀取 {fileDN} 個檔案 , 共 {dateN} 日 , {sampleN} 筆資料")
 
 all_data = all_data[all_data['current'] != 0]  # 刪除 current 為 0
 all_data = all_data[all_data['volt'] != 0]  # 刪除 volt 為 0
@@ -349,6 +360,9 @@ def close_program():
     root.destroy()  # 銷毀窗口，完全退出程式
     print("Program closed...")
 
+global Y
+Y = 1987
+
 # 建立 GUI 介面
 def create_gui():
     print("create gui...")
@@ -357,10 +371,8 @@ def create_gui():
     root.title("Data Plotter")
 
     # 設定 GUI 大小
-    root.geometry("240x580")
-
-    tk.Label(root, text="選擇要繪製的圖表:", font=("Arial", 10)).pack(pady=10)
-
+    root.geometry("240x720")
+    
     # 設定按鈕樣式
     button_style = {
         'padx': 10,
@@ -369,9 +381,19 @@ def create_gui():
         'width': 15,  # 設定按鈕寬度
         'height': 1   # 設定按鈕高度
     }
-    yy=4 #按鈕高度距
+    yy=4 #高度距
     
-
+    
+    # 顯示Label
+    label_value = tk.Label(root, text="資料路徑 :", font=("Arial", 9)).pack(pady=0)
+    label_value = tk.Label(root, text=f"{folder_path}", font=("Arial", 9), wraplength=230).pack(pady=1)
+    tk.Label(root, text="").pack(pady=1)  # 空行
+    
+    label_value = tk.Label(root, text=f"內有 {fileN} 個檔案 , 共讀取 {fileDN} 個檔案", font=("Arial", 9)).pack(pady=1)
+    label_value = tk.Label(root, text=f"共 {dateN} 日 , {sampleN} 筆資料", font=("Arial", 9)).pack(pady=1)
+    tk.Label(root, text="").pack(pady=1)  # 空行
+    
+    tk.Label(root, text="請按下相應按鈕以繪製對應圖表", font=("Arial", 10)).pack(pady=yy)  
     tk.Button(root, text="voltage", command=plot_voltage, **button_style).pack(pady=yy)
     tk.Button(root, text="current", command=plot_current, **button_style).pack(pady=yy)
     tk.Button(root, text="temperature", command=plot_temperature, **button_style).pack(pady=yy)
@@ -383,13 +405,13 @@ def create_gui():
     tk.Button(root, text="accelerometer_x", command=plot_accelerometer_x, **button_style).pack(pady=yy)
     tk.Button(root, text="accelerometer_y", command=plot_accelerometer_y, **button_style).pack(pady=yy)
     tk.Button(root, text="accelerometer_z", command=plot_accelerometer_z, **button_style).pack(pady=yy)
-    
     tk.Label(root, text="").pack(pady=yy)  # 空行
+    
     # 開啟和關閉所有 plot 的按鈕
     tk.Button(root, text="開啟所有圖表", command=open_all_plots, bg="yellow", fg="black", **button_style).pack(pady=yy)
     tk.Button(root, text="關閉所有圖表", command=close_all_plots, bg="lightblue", fg="black", **button_style).pack(pady=yy)
+    tk.Label(root, text="").pack(pady=yy)  # 空行
     
-    tk.Label(root, text="").pack(pady=yy)  # 空行    
     tk.Button(root, text="EXIT", command=close_program, bg="grey", fg="black", **button_style).pack(pady=yy)
 
 
