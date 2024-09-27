@@ -1,42 +1,12 @@
 import os
 import configparser
-import tkinter as tk
-from tkinter import messagebox
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from datetime import datetime
 from pyproj import Transformer
-
-# 確認 datapath.ini 是否存在，若不存在則生成
-if not os.path.exists('datapath.ini'):
-    print("datapath.ini 不存在，正在創建...")
-    config = configparser.ConfigParser()
-    config['Paths'] = {'folder_path': '請輸入資料夾路徑'}
-    
-    with open('datapath.ini', 'w') as configfile:
-        config.write(configfile)
-    print("datapath.ini 已生成，請開啟並設置資料夾路徑。")
-    input("press enter to exit...")
-    exit() 
-
-# 讀取INI檔案
-config = configparser.ConfigParser()
-
-try:
-    with open('datapath.ini', 'r', encoding='utf-8') as f:
-        config.read_file(f)
-except Exception as e:
-    print(f"datapath.ini error: {e}")
-    input("press enter to exit...")
-    exit()
-
-# 確認資料夾路徑是否已設置
-folder_path = config['Paths']['folder_path']
-if folder_path == '請輸入資料夾路徑':
-    print("請先在 datapath.ini 中設置資料夾路徑。")
-    input("press enter to exit...")
-    exit()
+import customtkinter as ctk
+from tkinter import filedialog
 
 # 初始化一個空的 DataFrame 來儲存所有的資料
 all_data = pd.DataFrame()
@@ -57,84 +27,8 @@ for j in range(100):
     b = ((j + num[2]) % num[0]) / num[0]
     colors.append((r, g, b))
 
-figuresize=[7,4]
-plotsize=3
-
-print("Reading all .txt files...")
-
-try:    
-    global fileN,fileDN,dateN,sampleN
-    fileN=fileDN=dateN=sampleN=0
-    # 遍歷資料夾中的所有.txt檔案
-    for filename in os.listdir(folder_path):
-        if filename.endswith(".txt"):
-            file_path = os.path.join(folder_path, filename)
-            fileN+=1
-            print(f"loading : {file_path}")
-            
-            # 提取日期
-            date_str = filename.split('_')[1]  # 取得日期部分
-            date = datetime.strptime(date_str, '%Y%m%d').date()
-            
-            # 隨機生成顏色或使用特定顏色
-            if date not in color_map:
-                color_map[date] = colors[color_index % len(colors)]  # 隨機顏色
-                color_index += 1
-                dateN+=1
-
-            # 初始化一個暫存列表來存儲數據
-            temp_data = []
-            
-            # 打開檔案逐行讀取
-            with open(file_path, 'r') as file:
-                for line in file:
-                    if 'END_OF_FILE' in line:
-                        break
-                    split_line = line.strip().split()
-                    if len(split_line) == 9:
-                        split_line.extend(['0', '0'])  # 增加 'volt' 和 'current' 欄位為 0
-                    temp_data.append(split_line)      
-
-            if temp_data and len(temp_data) > 3:  # 檢查至少有3行數據
-                data = pd.DataFrame(temp_data)
-                data.columns = ['UTC+8', 'ax', 'ay', 'az', 'lat', 'lon', 'alt', 'gps_mode', 'temperature', 'volt', 'current']
-                data['UTC+8'] = pd.to_datetime(data['UTC+8'], format='%H:%M:%S.%f', errors='coerce')
-                data = data.dropna(subset=['UTC+8'])
-                for col in data.columns[1:]:
-                    data[col] = pd.to_numeric(data[col], errors='coerce')     
-                data = data.dropna()
-
-                if len(data) > 0:
-                    twd97_x, twd97_y = transformer.transform(data['lat'].values, data['lon'].values)
-                    data['twd97_x'] = twd97_x
-                    data['twd97_y'] = twd97_y
-                    data['date'] = date
-                    all_data = pd.concat([all_data, data])
-                    fileDN+=1
-                    for _ in range(len(data)):
-                        sampleN+=1
-            else:
-                print(f"Error reading {file_path}")
-                
-except Exception as e:
-    print(f"Error reading files: {e}")
-    input("press enter to exit...")
-    exit()
-
-# 確保數據按時間順序排序
-try:
-    all_data.sort_values(by='UTC+8', inplace=True)
-except Exception as e:
-    print(f"Error sorting data: {e}")
-    input("press enter to exit...")
-    exit()
-
-print("finish loading...")
-print(f"{fileN} 個檔案 , 共讀取 {fileDN} 個檔案 , 共 {dateN} 日 , {sampleN} 筆資料")
-
-all_data = all_data[all_data['current'] != 0]  # 刪除 current 為 0
-all_data = all_data[all_data['volt'] != 0]  # 刪除 volt 為 0
-gps_mode_4_data = all_data[all_data['gps_mode'] == 4] # gps_mode 為 4 的資料
+figuresize = [7, 4]
+plotsize = 3
 
 def plot_voltage():
     print("plot voltage...")
@@ -371,61 +265,210 @@ def close_program():
     root.destroy()  # 銷毀窗口，完全退出程式
     print("Program closed...")
 
-# 建立 GUI 介面
+
+# GUI 打印訊息的函數
+def log_message(msg):
+    text_log.insert(ctk.END, msg + '\n')
+    text_log.see(ctk.END)
+    text_log.update_idletasks()  # 更新Tkinter界面
+
+def load_data(folder_path):
+    global all_data, gps_mode_4_data, color_map, color_index, fileN, fileDN, dateN, sampleN
+
+    all_data = pd.DataFrame()  # 清空之前的資料
+    color_map = {}
+    color_index = 0
+    fileN = fileDN = dateN = sampleN = 0
+
+    log_message(f"Reading all .txt files from {folder_path}...")
+
+    try:
+        for filename in os.listdir(folder_path):
+            if filename.endswith(".txt"):
+                file_path = os.path.join(folder_path, filename)
+                fileN += 1
+                log_message(f"loading : {file_path}")
+                root.update()  # 這樣Tkinter就會即時更新界面
+
+                # 提取日期
+                date_str = filename.split('_')[1]  # 取得日期部分
+                date = datetime.strptime(date_str, '%Y%m%d').date()
+
+                # 隨機生成顏色或使用特定顏色
+                if date not in color_map:
+                    color_map[date] = colors[color_index % len(colors)]  # 隨機顏色
+                    color_index += 1
+                    dateN += 1
+
+                # 初始化一個暫存列表來存儲數據
+                temp_data = []
+
+                # 打開檔案逐行讀取
+                with open(file_path, 'r') as file:
+                    for line in file:
+                        if 'END_OF_FILE' in line:
+                            break
+                        split_line = line.strip().split()
+                        if len(split_line) == 9:
+                            split_line.extend(['0', '0'])  # 增加 'volt' 和 'current' 欄位為 0
+                        temp_data.append(split_line)
+
+                if temp_data and len(temp_data) > 3:  # 檢查至少有3行數據
+                    data = pd.DataFrame(temp_data)
+                    data.columns = ['UTC+8', 'ax', 'ay', 'az', 'lat', 'lon', 'alt', 'gps_mode', 'temperature', 'volt', 'current']
+                    data['UTC+8'] = pd.to_datetime(data['UTC+8'], format='%H:%M:%S.%f', errors='coerce')
+                    data = data.dropna(subset=['UTC+8'])
+                    for col in data.columns[1:]:
+                        data[col] = pd.to_numeric(data[col], errors='coerce')
+                    data = data.dropna()
+
+                    if len(data) > 0:
+                        twd97_x, twd97_y = transformer.transform(data['lat'].values, data['lon'].values)
+                        data['twd97_x'] = twd97_x
+                        data['twd97_y'] = twd97_y
+                        data['date'] = date
+                        all_data = pd.concat([all_data, data])
+                        fileDN += 1
+                        for _ in range(len(data)):
+                            sampleN += 1
+                else:
+                    log_message(f"Error reading {file_path}")
+
+    except Exception as e:
+        log_message(f"Error reading files: {e}")
+        return False
+
+    # 確保數據按時間順序排序
+    try:
+        all_data.sort_values(by='UTC+8', inplace=True)
+    except Exception as e:
+        log_message(f"Error sorting data: {e}")
+        return False
+
+    log_message(f"{fileN} 個檔案 , 共讀取 {fileDN} 個檔案 , 共 {dateN} 日 , {sampleN} 筆資料")
+
+    all_data = all_data[all_data['current'] != 0]  # 刪除 current 為 0
+    all_data = all_data[all_data['volt'] != 0]  # 刪除 volt 為 0
+    gps_mode_4_data = all_data[all_data['gps_mode'] == 4] # gps_mode 為 4 的資料
+
+    return True
+
+
+def select_folder():
+    folder_selected = filedialog.askdirectory()
+    if folder_selected:
+        folder_path_label.configure(text=f"Folder: {folder_selected}")
+        enable_buttons()
+        if load_data(folder_selected):
+            log_message("Data loaded successfully.")
+
+
+def enable_buttons():
+    # 啟用所有按鈕
+    for button in buttons_list:
+        button.configure(state="normal")
+
 def create_gui():
-    print("create gui...")
-    global root
-    root = tk.Tk()
+    global root, folder_path_label, text_log, buttons_list
+
+    # 設定主題
+    ctk.set_appearance_mode("Dark")
+    ctk.set_default_color_theme("dark-blue")
+
+    root = ctk.CTk()
     root.title("Data Plotter")
+    root.geometry("540x720")
 
-    # 設定 GUI 大小
-    root.geometry("240x720")
-    
-    # 設定按鈕樣式
+    # 按鈕樣式
     button_style = {
-        'padx': 10,
-        'pady': 1,
-        'font': ("Arial", 8),
-        'width': 15,  # 設定按鈕寬度
-        'height': 1   # 設定按鈕高度
+        'font': ("Arial", 12),
+        'width': 120,
+        'height': 30
     }
-    yy=4 #高度距
-    
-    
-    # 顯示Label
-    label_value = tk.Label(root, text="資料路徑 :", font=("Arial", 9)).pack(pady=0)
-    label_value = tk.Label(root, text=f"{folder_path}", font=("Arial", 9), wraplength=230).pack(pady=1)
-    tk.Label(root, text="").pack(pady=1)  # 空行
-    
-    label_value = tk.Label(root, text=f"內有 {fileN} 個檔案 , 共讀取 {fileDN} 個檔案", font=("Arial", 9)).pack(pady=1)
-    label_value = tk.Label(root, text=f"共 {dateN} 日 , {sampleN} 筆資料", font=("Arial", 9)).pack(pady=1)
-    tk.Label(root, text="").pack(pady=1)  # 空行
-    
-    tk.Label(root, text="請按下相應按鈕以繪製對應圖表", font=("Arial", 10)).pack(pady=yy)  
-    tk.Button(root, text="voltage", command=plot_voltage, **button_style).pack(pady=yy)
-    tk.Button(root, text="current", command=plot_current, **button_style).pack(pady=yy)
-    tk.Button(root, text="temperature", command=plot_temperature, **button_style).pack(pady=yy)
-    tk.Button(root, text="gps_mode", command=plot_gps_mode, **button_style).pack(pady=yy)
-    tk.Button(root, text="altitude", command=plot_altitude, **button_style).pack(pady=yy)
-    tk.Button(root, text="TWD97_x", command=plot_TWD97_x, **button_style).pack(pady=yy)
-    tk.Button(root, text="TWD97_y", command=plot_TWD97_y, **button_style).pack(pady=yy)
-    tk.Button(root, text="TWD97_xy", command=plot_TWD97_xy, **button_style).pack(pady=yy)
-    tk.Button(root, text="accelerometer_x", command=plot_accelerometer_x, **button_style).pack(pady=yy)
-    tk.Button(root, text="accelerometer_y", command=plot_accelerometer_y, **button_style).pack(pady=yy)
-    tk.Button(root, text="accelerometer_z", command=plot_accelerometer_z, **button_style).pack(pady=yy)
-    tk.Label(root, text="").pack(pady=yy)  # 空行
-    
-    # 開啟和關閉所有 plot 的按鈕
-    tk.Button(root, text="開啟所有圖表", command=open_all_plots, bg="yellow", fg="black", **button_style).pack(pady=yy)
-    tk.Button(root, text="關閉所有圖表", command=close_all_plots, bg="lightblue", fg="black", **button_style).pack(pady=yy)
-    tk.Label(root, text="").pack(pady=yy)  # 空行
-    
-    tk.Button(root, text="EXIT", command=close_program, bg="grey", fg="black", **button_style).pack(pady=yy)
+    xx = 20  # 寬度距
+    yy = 5  # 高度距
 
+    Folder_button = ctk.CTkButton(root, text="Select Folder", command=select_folder, font=("Arial", 12)).pack(padx=xx, pady=yy)
+
+    # 顯示資料夾路徑的 Label
+    folder_path_label = ctk.CTkLabel(root, text="No folder selected", font=("Arial", 12))
+    folder_path_label.pack(pady=yy)
+
+    # Log 紀錄框
+    log_frame = ctk.CTkFrame(root)
+    log_frame.pack(pady=yy, fill='both', expand=True)
+
+    # 添加滾動條
+    text_log = ctk.CTkTextbox(log_frame, width=400, height=100)
+    text_log.pack(side='left', fill='both', expand=True)
+
+    text_label = ctk.CTkLabel(root, text="").pack(padx=0, pady=0)
+
+    # 繪圖按鈕區域
+    button_frame = ctk.CTkFrame(root)
+    button_frame.pack(expand=True)
+    root.grid_columnconfigure(0, weight=1)
+    
+    # 添加 plot 按鈕，初始為 disabled
+    buttons_list = []
+    ctk.CTkLabel(button_frame, text="Select Plot：", font=("Arial", 12)).grid(column=1, row=0, padx=xx, pady=yy)
+
+    button_voltage = ctk.CTkButton(button_frame, text="voltage", command=plot_voltage, state="disabled")
+    button_voltage.grid(column=0, row=5, padx=xx, pady=yy, sticky=ctk.W)
+    buttons_list.append(button_voltage)
+
+    button_current = ctk.CTkButton(button_frame, text="current", command=plot_current, state="disabled")
+    button_current.grid(column=0, row=6, padx=xx, pady=yy, sticky=ctk.W)
+    buttons_list.append(button_current)
+
+    button_temperature = ctk.CTkButton(button_frame, text="temperature", command=plot_temperature, state="disabled")
+    button_temperature.grid(column=0, row=7, padx=xx, pady=yy, sticky=ctk.W)
+    buttons_list.append(button_temperature)
+
+    button_accelerometer_x = ctk.CTkButton(button_frame, text="accelerometer_x", command=plot_accelerometer_x, state="disabled")
+    button_accelerometer_x.grid(column=1, row=5, padx=xx, pady=yy, sticky=ctk.W)
+    buttons_list.append(button_accelerometer_x)
+
+    button_accelerometer_y = ctk.CTkButton(button_frame, text="accelerometer_y", command=plot_accelerometer_y, state="disabled")
+    button_accelerometer_y.grid(column=1, row=6, padx=xx, pady=yy, sticky=ctk.W)
+    buttons_list.append(button_accelerometer_y)
+
+    button_accelerometer_z = ctk.CTkButton(button_frame, text="accelerometer_z", command=plot_accelerometer_z, state="disabled")
+    button_accelerometer_z.grid(column=1, row=7, padx=xx, pady=yy, sticky=ctk.W)
+    buttons_list.append(button_accelerometer_z)
+
+    button_gps_mode = ctk.CTkButton(button_frame, text="gps_mode", command=plot_gps_mode, state="disabled")
+    button_gps_mode.grid(column=2, row=5, padx=xx, pady=yy, sticky=ctk.W)
+    buttons_list.append(button_gps_mode)
+
+    button_altitude = ctk.CTkButton(button_frame, text="altitude", command=plot_altitude, state="disabled")
+    button_altitude.grid(column=2, row=6, padx=xx, pady=yy, sticky=ctk.W)
+    buttons_list.append(button_altitude)
+
+    button_TWD97_x = ctk.CTkButton(button_frame, text="TWD97_x", command=plot_TWD97_x, state="disabled")
+    button_TWD97_x.grid(column=2, row=7, padx=xx, pady=yy, sticky=ctk.W)
+    buttons_list.append(button_TWD97_x)
+
+    button_TWD97_y = ctk.CTkButton(button_frame, text="TWD97_y", command=plot_TWD97_y, state="disabled")
+    button_TWD97_y.grid(column=2, row=8, padx=xx, pady=yy, sticky=ctk.W)
+    buttons_list.append(button_TWD97_y)
+
+    button_TWD97_xy = ctk.CTkButton(button_frame, text="TWD97_xy", command=plot_TWD97_xy, state="disabled")
+    button_TWD97_xy.grid(column=2, row=9, padx=xx, pady=yy, sticky=ctk.W)
+    buttons_list.append(button_TWD97_xy)
+
+    button_open_all = ctk.CTkButton(button_frame, text="Open All Plots", command=open_all_plots, fg_color="#2894FF", state="disabled")
+    button_open_all.grid(column=0, row=11, padx=xx, pady=yy, sticky=ctk.W + ctk.S)
+    buttons_list.append(button_open_all)
+
+    button_close_all = ctk.CTkButton(button_frame, text="Close All Plots", command=close_all_plots, fg_color="#003060", state="disabled")
+    button_close_all.grid(column=0, row=12, padx=xx, pady=yy, sticky=ctk.W + ctk.S)
+    buttons_list.append(button_close_all)
+
+    button_exit = ctk.CTkButton(button_frame, text="EXIT", command=close_program, fg_color="grey", text_color="black")
+    button_exit.grid(column=2, row=12, padx=xx, pady=yy, sticky=ctk.E + ctk.S)
 
     root.mainloop()
 
-# 啟動 GUI
+# 呼叫 create_gui() 來啟動 GUI
 create_gui()
-
-exit() 
