@@ -60,8 +60,14 @@ def read_355_m():
 
 # --- 下面是Socket傳送相關 ---
 
+ACCPORT="2370"
+
 REMOTE_PC_LIST = [
-    ('10.241.180.148', 2370),  # 只傳到這台
+    ('10.241.0.114', ACCPORT),
+    ('10.241.215.99', ACCPORT),
+    ('10.241.180.148', ACCPORT),
+    ('10.241.199.211', ACCPORT),
+    # 更多 IP...
 ]
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
