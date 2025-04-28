@@ -60,7 +60,7 @@ def read_355_m():
 
 # --- 下面是Socket傳送相關 ---
 
-ACCPORT="2370"
+ACCPORT = 2370
 
 REMOTE_PC_LIST = [
     ('10.241.0.114', ACCPORT),
@@ -122,12 +122,12 @@ while True:
         if not online_status[remote_ip]:
             continue
 
-    try:
-        sent_bytes = sock.sendto(data, (remote_ip, remote_port))
-        total_bytes_sent += sent_bytes
-        sent_bytes_per_pc[remote_ip] += sent_bytes
-    except Exception as e:
-        print(f"發送到 {remote_ip}:{remote_port} 失敗，錯誤：{e}")
+        try:
+            sent_bytes = sock.sendto(data, (remote_ip, remote_port))
+            total_bytes_sent += sent_bytes
+            sent_bytes_per_pc[remote_ip] += sent_bytes
+        except Exception as e:
+            pass  # 傳送失敗就略過，不影響主程式
 
     packet_count += 1
 
