@@ -1,6 +1,9 @@
-import time
-import smbus2
 import socket
+import time
+import os
+import platform
+import threading
+import smbus2
 
 # ADXL355 Register Map
 TEMP2 = 0x06
@@ -12,16 +15,9 @@ POWER_CTL = 0x2D
 RANGE = 0x2C
 SELF_TEST = 0x2E
 
-# 初始化 I2C
+# 初始化
 bus = smbus2.SMBus(1)
-Device_Address = 0x1D  # ADXL355 預設 I2C 位址
-
-# 初始化 socket
-server_ip = "10.241.180.148"
-server_port = 2370
-
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.connect((server_ip, server_port))  # 連接到目標 IP 和 PORT
+Device_Address = 0x1D  # ADXL355 I2C位址
 
 def setup_355_m():
     write_355(RESET, 0x52)
@@ -37,7 +33,6 @@ def write_355(addr, value):
     bus.write_byte_data(Device_Address, addr, value)
 
 def read_355_m():
-    global ax, ay, az, temp
     var = bus.read_i2c_block_data(Device_Address, TEMP2, 11)
     
     ax = (var[2] << 12 | var[3] << 4 | var[4] >> 4)
@@ -61,16 +56,77 @@ def read_355_m():
     temp_raw = (var[0] << 8 | var[1])
     temp = ((1852 - temp_raw) / 9.05) + 27.2  # 溫度校正
 
+    return ax, ay, az, temp
+
+# --- 下面是Socket傳送相關 ---
+
+REMOTE_PC_LIST = [
+    ('10.241.180.148', 2370),  # 只傳到這台
+]
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+packet_count = 0
+total_bytes_sent = 0
+sent_bytes_per_pc = {ip: 0 for ip, _ in REMOTE_PC_LIST}
+online_status = {ip: False for ip, _ in REMOTE_PC_LIST}
+
+last_display_time = time.time()
+
+def clear_screen():
+    os.system('cls' if platform.system().lower() == 'windows' else 'clear')
+
+def ping(ip):
+    param = "-n" if platform.system().lower() == "windows" else "-c"
+    result = os.system(f"ping {param} 1 {ip} > /dev/null 2>&1")
+    return result == 0
+
+def ping_checker():
+    while True:
+        for ip, _ in REMOTE_PC_LIST:
+            online_status[ip] = ping(ip)
+        time.sleep(5)
+
+def display_status():
+    clear_screen()
+    print(f"總封包數：{packet_count}")
+    print(f"總傳輸量：{total_bytes_sent / (1024 * 1024):.2f} MB")
+    print("各電腦傳輸量與狀態：")
+    for ip in sent_bytes_per_pc:
+        status = "online" if online_status[ip] else "offline"
+        mb = sent_bytes_per_pc[ip] / (1024 * 1024)
+        print(f"  {ip} ： {mb:.2f} MB  {status}")
+    print("-" * 40)
+
+# 啟動背景ping檢查線程
+threading.Thread(target=ping_checker, daemon=True).start()
+
+# 設定 ADXL355
 setup_355_m()
 
-try:
-    while True:
-        read_355_m()
-        message = f"ADXL355,{ax:.6f},{ay:.6f},{az:.6f},{temp:.2f}\n"
-        sock.sendall(message.encode())  # 傳送字串
-        time.sleep(0.01)  # 每10ms送一次 (100Hz)
-except KeyboardInterrupt:
-    print("手動中止")
-finally:
-    sock.close()
-    bus.close()
+# 主迴圈：讀ADXL355並用UDP發送
+while True:
+    ax, ay, az, temp = read_355_m()
+
+    # 封裝成字串
+    message = f"ADXL355,{ax:.6f},{ay:.6f},{az:.6f},{temp:.2f}"
+    data = message.encode('utf-8')
+
+    for remote_ip, remote_port in REMOTE_PC_LIST:
+        if not online_status[remote_ip]:
+            continue
+
+        try:
+            sent_bytes = sock.sendto(data, (remote_ip, remote_port))
+            total_bytes_sent += sent_bytes
+            sent_bytes_per_pc[remote_ip] += sent_bytes
+        except Exception:
+            pass
+
+    packet_count += 1
+
+    if time.time() - last_display_time >= 1:
+        display_status()
+        last_display_time = time.time()
+
+    time.sleep(0.01)  # 每10ms送一次
