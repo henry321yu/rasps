@@ -1,5 +1,6 @@
 import time
 import smbus2
+import socket
 
 # ADXL355 Register Map
 TEMP2 = 0x06
@@ -11,10 +12,16 @@ POWER_CTL = 0x2D
 RANGE = 0x2C
 SELF_TEST = 0x2E
 
-# 初始化
-bus = smbus2.SMBus(1)  # 如果是舊版Pi，可能是 bus = smbus2.SMBus(0)
+# 初始化 I2C
+bus = smbus2.SMBus(1)
+Device_Address = 0x1D  # ADXL355 預設 I2C 位址
 
-Device_Address = 0x1D  # ADXL355 預設I2C位址
+# 初始化 socket
+server_ip = "10.241.180.148"
+server_port = 2370
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.connect((server_ip, server_port))  # 連接到目標 IP 和 PORT
 
 def setup_355_m():
     write_355(RESET, 0x52)
@@ -54,10 +61,16 @@ def read_355_m():
     temp_raw = (var[0] << 8 | var[1])
     temp = ((1852 - temp_raw) / 9.05) + 27.2  # 溫度校正
 
-setup_355_m() # 設定 ADXL355
+setup_355_m()
 
-# 讀取與印出
-while True:
-    read_355_m()
-    print(f"{ax:.6f},{ay:.6f},{az:.6f},{temp:.2f}")
-    time.sleep(0.01)  # 每10ms讀一次 (大概100Hz)
+try:
+    while True:
+        read_355_m()
+        message = f"ADXL355,{ax:.6f},{ay:.6f},{az:.6f},{temp:.2f}\n"
+        sock.sendall(message.encode())  # 傳送字串
+        time.sleep(0.01)  # 每10ms送一次 (100Hz)
+except KeyboardInterrupt:
+    print("手動中止")
+finally:
+    sock.close()
+    bus.close()
