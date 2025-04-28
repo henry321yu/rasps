@@ -122,12 +122,12 @@ while True:
         if not online_status[remote_ip]:
             continue
 
-        try:
-            sent_bytes = sock.sendto(data, (remote_ip, remote_port))
-            total_bytes_sent += sent_bytes
-            sent_bytes_per_pc[remote_ip] += sent_bytes
-        except Exception:
-            pass
+    try:
+        sent_bytes = sock.sendto(data, (remote_ip, remote_port))
+        total_bytes_sent += sent_bytes
+        sent_bytes_per_pc[remote_ip] += sent_bytes
+    except Exception as e:
+        print(f"發送到 {remote_ip}:{remote_port} 失敗，錯誤：{e}")
 
     packet_count += 1
 
