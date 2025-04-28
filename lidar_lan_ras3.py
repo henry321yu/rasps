@@ -12,6 +12,7 @@ REMOTE_PC_LIST = [
     ('10.241.215.99', LIDAR_PORT),
     ('10.241.180.148', LIDAR_PORT),
     ('10.241.199.211', LIDAR_PORT),
+    ('10.241.183.64', LIDAR_PORT),
     # 更多 IP...
 ]
 

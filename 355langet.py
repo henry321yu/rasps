@@ -15,6 +15,18 @@ while True:
     try:
         data, addr = sock.recvfrom(1024)  # 最多收1024 bytes
         message = data.decode('utf-8')
-        print(f"收到來自 {addr[0]}:{addr[1]} 的資料：{message}")
+
+        # 分割資料
+        parts = message.split(',')
+        if len(parts) == 5:
+            ID = parts[0]
+            ax = float(parts[1])
+            ay = float(parts[2])
+            az = float(parts[3])
+            tem = float(parts[4])
+            
+            # 印出變數
+            print(f"{ID},{ax},{ay},{az},{tem}")
+
     except Exception as e:
         print(f"接收錯誤: {e}")
