@@ -1,0 +1,16 @@
+[Unit]
+Description=Start lidar_lan_all
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/raslan/Desktop/lidar_lan_all.py
+WorkingDirectory=/home/raslan/Desktop
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+User=raslan
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/raslan/.Xauthority
+
+[Install]
+WantedBy=multi-user.target
