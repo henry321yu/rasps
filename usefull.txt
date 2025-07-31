@@ -194,3 +194,39 @@ uptime
 開機時間
 who -b
          system boot  2025-07-21 17:42
+
+
+
+
+
+
+
+############ZEROTIER###############
+先確保樹莓派系統是最新的：
+sudo apt update
+sudo apt upgrade -y
+
+ZeroTier 官方提供 Linux 腳本安裝方式：
+curl -s https://install.zerotier.com | sudo bash
+
+可確認服務是否運行：
+sudo systemctl status zerotier-one
+
+加入 ZeroTier 網路
+sudo zerotier-cli join d5e5fb653749492c
+
+成功後可以用：
+sudo zerotier-cli listnetworks
+
+獲取分配的虛擬 IP：
+ip addr show
+
+
+# 查看加入的網路
+sudo zerotier-cli listnetworks
+
+# 查看節點 ID
+sudo zerotier-cli info
+
+# 離開某個網路
+sudo zerotier-cli leave <network_id>
