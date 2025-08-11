@@ -13,7 +13,7 @@ def create_video_writer(filename, width, height, fps=15):
     return cv2.VideoWriter(filename, fourcc, fps, (width, height))
 
 # 攝像頭設定
-width, height, fps = 640, 480, 15
+width, height, fps = 640, 480, 20
 
 cap0 = cv2.VideoCapture(0)
 cap0.set(cv2.CAP_PROP_FRAME_WIDTH, width)
