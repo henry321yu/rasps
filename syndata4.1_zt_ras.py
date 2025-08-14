@@ -72,16 +72,7 @@ recive_mod = 0
 def get_zerotier_ip():
     interfaces = psutil.net_if_addrs()
     for iface_name, iface_addrs in interfaces.items():
-        if "Zero" in iface_name:  # 介面通常開頭
-            for addr in iface_addrs:
-                if addr.family.name == 'AF_INET':  # IPv4
-                    return iface_name, addr.address
-    return None, None
-
-def get_radmin_ip():
-    interfaces = psutil.net_if_addrs()
-    for iface_name, iface_addrs in interfaces.items():
-        if "Radmin" in iface_name:  # 介面通常開頭
+        if "zt" in iface_name:  # 介面通常開頭
             for addr in iface_addrs:
                 if addr.family.name == 'AF_INET':  # IPv4
                     return iface_name, addr.address
