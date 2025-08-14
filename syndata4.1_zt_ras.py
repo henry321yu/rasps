@@ -30,7 +30,7 @@ def get_port():
             print("port 格式錯誤，使用預設值")
 
     # 預設值
-    port = 5001
+    port = 5100
     config.set("SETTINGS", "port", str(port))
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         config.write(f)
@@ -49,8 +49,7 @@ def get_sync_folder():
         if folder_name:
             return os.path.join(BASE_DIR, folder_name)
     
-    # 預設為 sync_data
-    folder_name = "sync_data"
+    folder_name = "ras_data"
     full_path = os.path.join(BASE_DIR, folder_name)
     os.makedirs(full_path, exist_ok=True)
     
