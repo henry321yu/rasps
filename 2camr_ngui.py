@@ -64,7 +64,7 @@ try:
             break
 
         # 時間字串
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-4]
 
         # 在影像上畫時間
         font = cv2.FONT_HERSHEY_SIMPLEX
@@ -86,8 +86,9 @@ try:
         # 判斷是否超過 interval，若是就換新檔案
         elapsed = time.time() - start_time
         if elapsed > interval:
-            writer0.release()
+            writer0.release()    
             writer2.release()
+            
             # 先定義檔名
             filename0 = get_filename(1)
             filename2 = get_filename(2)
