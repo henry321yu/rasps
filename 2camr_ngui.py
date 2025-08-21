@@ -7,7 +7,7 @@ def get_filename(cam_id):
     now = datetime.now().strftime("%Y%m%d%H%M%S")
     return f"/home/admin/Desktop/video/{now}_cam{cam_id}.avi"
 
-def create_video_writer(filename, width, height, fps=15):
+def create_video_writer(filename, width, height, fps):
     # 使用 MJPG 編碼，寫入 AVI 檔案
     fourcc = cv2.VideoWriter_fourcc(*'MJPG')
     return cv2.VideoWriter(filename, fourcc, fps, (width, height))
@@ -46,7 +46,7 @@ writer0 = create_video_writer(filename0, width, height, fps)
 writer2 = create_video_writer(filename2, width, height, fps)
 
 start_time = time.time()
-interval = 2 * 60  # 2 分鐘切換一次檔案
+interval = 5 * 60  # 5 分鐘切換一次檔案
 
 print("成功開啟兩個攝像頭並開始錄影 (按 Ctrl+C 停止)")
 print(f"目前檔案：\n{filename0}\n{filename2}")
@@ -95,7 +95,7 @@ try:
             # 建立錄影器
             writer0 = create_video_writer(filename0, width, height, fps)
             writer2 = create_video_writer(filename2, width, height, fps)
-            
+
             start_time = time.time()
             print(f"切換新錄影檔案：\n{filename0}\n{filename2}")
 
