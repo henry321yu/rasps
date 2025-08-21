@@ -4,7 +4,7 @@ from datetime import datetime
 
 def get_filename(cam_id):
     # 回傳依時間命名的檔名，例如 "202508111607_cam1.avi"
-    now = datetime.now().strftime("%Y%m%d%H%M")
+    now = datetime.now().strftime("%Y%m%d%H%M%S")
     return f"/home/admin/Desktop/video/{now}_cam{cam_id}.avi"
 
 def create_video_writer(filename, width, height, fps=15):
