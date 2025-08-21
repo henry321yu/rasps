@@ -58,6 +58,26 @@ while True:
         print("攝像頭 /dev/video2 無法讀取畫面")
         break
 
+    # 時間字串
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  # 只保留到毫秒
+
+    # 設定字體
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.6
+    color = (255, 255, 255)  # 黃色
+    thickness = 1
+
+    # 計算文字大小
+    (text_w, text_h), baseline = cv2.getTextSize(now_str, font, font_scale, thickness)
+
+    # 座標 (右下角，距邊緣 10px)
+    org0 = (width - text_w - 10, height - 10)
+    org2 = (width - text_w - 10, height - 10)
+
+    # 在影像上畫時間
+    cv2.putText(frame0, now_str, org0, font, font_scale, color, thickness, cv2.LINE_AA)
+    cv2.putText(frame2, now_str, org2, font, font_scale, color, thickness, cv2.LINE_AA)
+
     # 顯示畫面
     cv2.imshow('Camera 0 (/dev/video0)', frame0)
     cv2.imshow('Camera 2 (/dev/video2)', frame2)
