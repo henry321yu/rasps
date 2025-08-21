@@ -39,13 +39,19 @@ if not cap2.isOpened():
     cv2.destroyAllWindows()
     exit()
 
-# 初始化錄影器與計時器
-writer0 = create_video_writer(get_filename(1), width, height, fps)
-writer2 = create_video_writer(get_filename(2), width, height, fps)
-start_time = time.time()
-interval = 2 * 60  # 5分鐘切換一次檔案
+# 先定義檔名
+filename0 = get_filename(1)
+filename2 = get_filename(2)
 
-print("成功開啟兩個攝像頭並開始錄影，按 q 離開")
+# 建立錄影器
+writer0 = create_video_writer(filename0, width, height, fps)
+writer2 = create_video_writer(filename2, width, height, fps)
+
+start_time = time.time()
+interval = 5 * 60  # 5分鐘切換一次檔案
+
+print("成功開啟兩個攝像頭並開始錄影 (按 Ctrl+C 停止)")
+print(f"目前檔案：\n{filename0}\n{filename2}")
 
 while True:
     ret0, frame0 = cap0.read()
@@ -59,7 +65,7 @@ while True:
         break
 
     # 時間字串
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]  # 只保留到毫秒
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-4]  # 只保留到毫秒
 
     # 設定字體
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -91,10 +97,16 @@ while True:
     if elapsed > interval:
         writer0.release()
         writer2.release()
-        writer0 = create_video_writer(get_filename(1), width, height, fps)
-        writer2 = create_video_writer(get_filename(2), width, height, fps)
+            
+        # 先定義檔名
+        filename0 = get_filename(1)
+        filename2 = get_filename(2)
+
+        # 建立錄影器
+        writer0 = create_video_writer(filename0, width, height, fps)
+        writer2 = create_video_writer(filename2, width, height, fps)
         start_time = time.time()
-        print("切換新錄影檔案")
+        print(f"切換新錄影檔案：\n{filename0}\n{filename2}")
 
     # 按 q 鍵退出
     if cv2.waitKey(1) & 0xFF == ord('q'):
