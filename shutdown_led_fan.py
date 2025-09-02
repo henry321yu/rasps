@@ -11,8 +11,8 @@ LED_PIN = 16     # 提示燈
 FAN_PIN = 12     # 風扇控制
 
 # ====== 風扇 PWM 參數 ======
-FREQ_HZ = 15000        # 25 kHz，減少鳴叫
-UPDATE_SEC = 3         # 每 3 秒更新一次
+FREQ_HZ = 25000        # 25 kHz，減少鳴叫
+UPDATE_SEC = 5         # 每 5 秒更新一次
 
 # 初始化 pigpio
 pi = pigpio.pi()
@@ -28,7 +28,7 @@ def get_cpu_temp_c():
 
 def temp_to_duty(temp_c):
     if temp_c < 52:
-        duty = 50.0
+        duty = 0.0
     elif temp_c < 70:
         duty = 50.0 + (temp_c - 52.0) * (52.0 / 18.0)
     else:
