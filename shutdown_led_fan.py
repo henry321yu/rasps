@@ -11,7 +11,7 @@ LED_PIN = 16     # 提示燈
 FAN_PIN = 12     # 風扇控制
 
 # ====== 風扇 PWM 參數 ======
-FREQ_HZ = 25000        # 25 kHz，減少鳴叫
+FREQ_HZ = 20000        # 20 kHz，減少鳴叫
 UPDATE_SEC = 5         # 每 5 秒更新一次
 
 # 初始化 pigpio
