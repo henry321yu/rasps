@@ -18,6 +18,7 @@ start_time = time.perf_counter()
 count = 0
 freq = 0.0
 azt = 0
+t0 = time.perf_counter()
 
 logfile = open("355test/355test.txt", "w", buffering=1)  # line buffered
 
@@ -73,9 +74,10 @@ try:
         count += 1
         now = time.perf_counter()
         elapsed = now - start_time
-        
+        timestamp = now - t0
+
         if freq > 0:
-            line = f"{ax:.6f},{ay:.6f},{az:.6f},{temp:.2f},{freq:.2f}\n"
+            line = f"{timestamp:.6f},{ax:.6f},{ay:.6f},{az:.6f},{temp:.2f},{freq:.2f}\n"
             logfile.write(line)   # 寫入檔案
 
         if elapsed >= 2.0:
