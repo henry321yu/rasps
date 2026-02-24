@@ -19,6 +19,8 @@ count = 0
 freq = 0.0
 azt = 0
 
+logfile = open("355test/355test.txt", "w", buffering=1)  # line buffered
+
 def setup_355_m():
     write_355(RESET, 0x52)
     time.sleep(0.1)
@@ -59,24 +61,31 @@ def read_355_m():
 
 setup_355_m() # 設定 ADXL355
 
-# 讀取與印出
-while True:
-    read_355_m()
-    while azt == az:
+try:
+    line = ""
+    while True:
         read_355_m()
 
-    azt = az
-    count += 1
-    now = time.perf_counter()
-    elapsed = now - start_time
+        while azt == az:
+            read_355_m()
 
-    # 每2秒更新一次頻率
-    if elapsed >= 2.0:
-        freq = count / elapsed
-        count = 0
-        start_time = now
-        print(f"{ax:.6f},{ay:.6f},{az:.6f},{temp:.2f},{freq:.2f}")
+        azt = az
+        count += 1
+        now = time.perf_counter()
+        elapsed = now - start_time
+        
+        if freq > 0:
+            line = f"{ax:.6f},{ay:.6f},{az:.6f},{temp:.2f},{freq:.2f}\n"
+            logfile.write(line)   # 寫入檔案
 
-    # print(f"{ax:.6f},{ay:.6f},{az:.6f},{temp:.2f},{freq:.2f}")
+        if elapsed >= 2.0:
+            freq = count / elapsed
+            count = 0
+            start_time = now
+            if freq > 0:
+                print(line,end='')
+            
+        time.sleep(0.0005)
 
-    time.sleep(0.0005)
+except KeyboardInterrupt:
+    logfile.close()
