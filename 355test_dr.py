@@ -20,7 +20,7 @@ Device_Address = 0x1D
 # ===============================
 # DRDY GPIO 設定
 # ===============================
-DRDY_PIN = 17   # BCM numbering
+DRDY_PIN = 4   # BCM numbering
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(DRDY_PIN, GPIO.IN)
