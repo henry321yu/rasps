@@ -118,8 +118,7 @@ time.sleep(0.5)
 GPIO.add_event_detect(
     DRDY_PIN,
     GPIO.RISING,
-    callback=drdy_callback,
-    bouncetime=0
+    callback=drdy_callback
 )
 
 print("DRDY interrupt started...")
