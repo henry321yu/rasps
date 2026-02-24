@@ -17,6 +17,7 @@ Device_Address = 0x1D
 start_time = time.perf_counter()
 count = 0
 freq = 0.0
+azt = 0
 
 def setup_355_m():
     write_355(RESET, 0x52)
@@ -61,7 +62,10 @@ setup_355_m() # 設定 ADXL355
 # 讀取與印出
 while True:
     read_355_m()
+    while azt == az:
+        read_355_m()
 
+    azt = az
     count += 1
     now = time.perf_counter()
     elapsed = now - start_time
@@ -75,4 +79,4 @@ while True:
 
     # print(f"{ax:.6f},{ay:.6f},{az:.6f},{temp:.2f},{freq:.2f}")
 
-    time.sleep(0.001)
+    time.sleep(0.0005)
