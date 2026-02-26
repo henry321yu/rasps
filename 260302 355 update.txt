@@ -1,0 +1,23 @@
+sudo nano /boot/firmware/config.txt
+dtparam=i2c_arm_baudrate=1000000
+
+def send_adxl355():
+    global adxl_sent
+    last_az = None
+
+    PREFIX = "ADXL355,"
+
+    while True:
+        ax, ay, az, temp = read_adxl355()
+
+        if az == last_az:
+            continue
+        last_az = az
+
+        message = PREFIX + "%.6f,%.6f,%.6f,%.2f" % (ax, ay, az, temp)
+
+        for ip, _ in REMOTE_PC_LIST:
+            if online_status[ip]:
+                sock_adxl.sendto(message.encode(), (ip, ADXL_PORT))
+                adxl_sent += 1
+        time.sleep(0.0005)
