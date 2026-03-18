@@ -19,6 +19,19 @@ ubr = UBXReader(ser)
 
 start_time = time.time()
 
+def interpret_gps_mode(fix_type):
+    """將 UBX fixType 整數轉成可讀字串"""
+    modes = {
+        0: "No Fix",
+        1: "GPS Fix",
+        2: "DGPS Fix",
+        3: "3D Fix",
+        4: "RTK Fixed",
+        5: "RTK Float",
+        6: "Dead Reckoning",
+    }
+    return modes.get(fix_type, "Unknown")
+
 with open(filename, 'ab') as f:
     while True:
         try:
@@ -41,13 +54,16 @@ with open(filename, 'ab') as f:
                 # ===== 取得精度（mm → m） =====
                 hAcc = parsed.hAcc / 1000
                 vAcc = parsed.vAcc / 1000
+                
+                # ===== FixType 轉成字串 =====
+                fix_str = interpret_gps_mode(parsed.fixType)
 
                 print(f"""
 Uptime: {elapsed:.1f} sec
 File size: {size_mb:.2f} MB
 
 Time (UTC+8): {local_time}
-FixType: {parsed.fixType}
+FixType: {fix_str}
 Satellites: {parsed.numSV}
 
 Horizontal Accuracy: {hAcc:.3f} m
