@@ -1,15 +1,25 @@
+import os
 import serial
 from pyubx2 import UBXReader
 import time
 from datetime import datetime, timedelta
 
-ser = serial.Serial('/dev/ttyACM0', 115200, timeout=1)
+# ===== 目標資料夾 =====
+folder = "f9p"
+os.makedirs(folder, exist_ok=True)  # 不存在就建立
 
+# ===== 建立檔名，用程式啟動當前時間（UTC+8） =====
+now = datetime.now() + timedelta(hours=8)
+filename = os.path.join(folder, f"gnss_log_{now.strftime('%y%m%d%H%M%S')}.bin")
+print(f"Logging to: {filename}")
+
+# ===== 開啟 serial port =====
+ser = serial.Serial('/dev/ttyACM0', 115200, timeout=1)
 ubr = UBXReader(ser)
 
 start_time = time.time()
 
-with open('gnss_log.bin', 'ab') as f:
+with open(filename, 'ab') as f:
     while True:
         try:
             raw, parsed = ubr.read()
@@ -19,20 +29,16 @@ with open('gnss_log.bin', 'ab') as f:
                 f.flush()
 
             if parsed and parsed.identity == "NAV-PVT":
-
+                # ===== 計算 runtime 與檔案大小 =====
                 elapsed = time.time() - start_time
-                size_mb = f.tell() / (1024 * 1024)
+                size_mb = f.tell() / (1024*1024)
 
-                # 👉 GNSS UTC
-                dt = datetime(
-                    parsed.year, parsed.month, parsed.day,
-                    parsed.hour, parsed.min, parsed.second
-                )
-
-                # 👉 轉 UTC+8
+                # ===== 取得 GNSS UTC+8 =====
+                dt = datetime(parsed.year, parsed.month, parsed.day,
+                              parsed.hour, parsed.min, parsed.second)
                 local_time = dt + timedelta(hours=8)
 
-                # 👉 精度（mm → m）
+                # ===== 取得精度（mm → m） =====
                 hAcc = parsed.hAcc / 1000
                 vAcc = parsed.vAcc / 1000
 
