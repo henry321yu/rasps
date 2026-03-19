@@ -9,7 +9,7 @@ folder = "f9p"
 os.makedirs(folder, exist_ok=True)  # 不存在就建立
 
 # ===== 建立檔名，用程式啟動當前時間（UTC+8） =====
-now = datetime.now() + timedelta(hours=8)
+now = datetime.now()
 filename = os.path.join(folder, f"gnss_log_{now.strftime('%y%m%d%H%M%S')}.bin")
 print(f"Logging to: {filename}")
 
