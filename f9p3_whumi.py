@@ -4,6 +4,7 @@ import threading
 import time
 from pyubx2 import UBXReader
 from datetime import datetime, timedelta
+from serial.tools import list_ports
 
 # ===== folder =====
 folder = "f9p"
@@ -23,19 +24,52 @@ lock = threading.Lock()
 
 start_time = time.time()
 
-# ===== serial init function =====
+# =========================
+# PORT FINDER
+# =========================
+def find_port(keyword):
+    ports = list_ports.comports()
+    for p in ports:
+        if keyword in p.device:
+            return p.device
+    return None
+
+# =========================
+# INIT FUNCTIONS (BLOCKING)
+# =========================
 def init_gnss():
-    ser = serial.Serial('/dev/ttyACM0', 115200, timeout=1)
-    return ser, UBXReader(ser)
+    while True:
+        port = find_port("ACM")
+        if port:
+            try:
+                ser = serial.Serial(port, 115200, timeout=1)
+                print(f"[GNSS] Connected: {port}")
+                return ser, UBXReader(ser)
+            except Exception as e:
+                print("[GNSS] Open failed:", e)
+
+        print("[GNSS] Waiting device...")
+        time.sleep(1)
+
 
 def init_humi():
-    ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
-    time.sleep(2)
-    return ser
+    while True:
+        port = find_port("USB")
+        if port:
+            try:
+                ser = serial.Serial(port, 115200, timeout=1)
+                print(f"[HUMI] Connected: {port}")
+                time.sleep(2)
+                return ser
+            except Exception as e:
+                print("[HUMI] Open failed:", e)
+
+        print("[HUMI] Waiting device...")
+        time.sleep(1)
+
 
 ser_gnss, ubr = init_gnss()
 ser_humi = init_humi()
-
 
 # =========================
 # GNSS THREAD
@@ -80,13 +114,11 @@ Humidity: {hum} %
             except OSError as e:
                 msg = str(e)
 
-                # 👉 忽略 F9P 常見 false-ready error
                 if "returned no data" in msg:
                     continue
 
-                print("GNSS Error:", e)
+                print("[GNSS] Error:", e)
 
-                # 👉 reconnect
                 try:
                     ser_gnss.close()
                 except:
@@ -96,7 +128,7 @@ Humidity: {hum} %
                 ser_gnss, ubr = init_gnss()
 
             except Exception as e:
-                print("GNSS Fatal Error:", e)
+                print("[GNSS] Fatal:", e)
                 time.sleep(1)
 
 
@@ -135,9 +167,13 @@ def humidity_thread():
                         pass
 
             except OSError as e:
-                print("HUMI Error:", e)
+                msg = str(e)
 
-                # 👉 reconnect USB serial
+                if "returned no data" in msg:
+                    continue
+
+                print("[HUMI] Error:", e)
+
                 try:
                     ser_humi.close()
                 except:
@@ -147,12 +183,12 @@ def humidity_thread():
                 ser_humi = init_humi()
 
             except Exception as e:
-                print("HUMI Fatal Error:", e)
+                print("[HUMI] Fatal:", e)
                 time.sleep(1)
 
 
 # =========================
-# start threads
+# START THREADS
 # =========================
 t1 = threading.Thread(target=gnss_thread, daemon=True)
 t2 = threading.Thread(target=humidity_thread, daemon=True)
