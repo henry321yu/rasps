@@ -17,25 +17,31 @@ humi_filename = os.path.join(folder, f"humi_log_{now.strftime('%y%m%d%H%M%S')}.t
 print("GNSS:", gnss_filename)
 print("HUMI:", humi_filename)
 
-# ===== serial =====
-ser_gnss = serial.Serial('/dev/ttyACM0', 115200, timeout=1)
-ubr = UBXReader(ser_gnss)
-
-ser_humi = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
-time.sleep(2)
-
 # ===== shared variable =====
 latest_humidity = None
 lock = threading.Lock()
 
 start_time = time.time()
 
+# ===== serial init function =====
+def init_gnss():
+    ser = serial.Serial('/dev/ttyACM0', 115200, timeout=1)
+    return ser, UBXReader(ser)
+
+def init_humi():
+    ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
+    time.sleep(2)
+    return ser
+
+ser_gnss, ubr = init_gnss()
+ser_humi = init_humi()
+
 
 # =========================
-# GNSS THREAD (原本幾乎不動)
+# GNSS THREAD
 # =========================
 def gnss_thread():
-    global latest_humidity
+    global ser_gnss, ubr
 
     with open(gnss_filename, 'ab') as f:
 
@@ -47,7 +53,6 @@ def gnss_thread():
                     f.write(raw)
                     f.flush()
 
-                # GNSS print（加濕度顯示）
                 if parsed and parsed.identity == "NAV-PVT":
                     elapsed = time.time() - start_time
                     size_mb = f.tell() / (1024 * 1024)
@@ -72,24 +77,43 @@ VAcc: {vAcc:.3f} m
 Humidity: {hum} %
 """)
 
-            except Exception as e:
+            except OSError as e:
+                msg = str(e)
+
+                # 👉 忽略 F9P 常見 false-ready error
+                if "returned no data" in msg:
+                    continue
+
                 print("GNSS Error:", e)
 
+                # 👉 reconnect
+                try:
+                    ser_gnss.close()
+                except:
+                    pass
+
+                time.sleep(1)
+                ser_gnss, ubr = init_gnss()
+
+            except Exception as e:
+                print("GNSS Fatal Error:", e)
+                time.sleep(1)
+
 
 # =========================
-# HUMIDITY THREAD (1Hz)
+# HUMIDITY THREAD
 # =========================
 def humidity_thread():
-    global latest_humidity
+    global ser_humi, latest_humidity
 
-    save_interval = 1.0   # 👉 控制儲存頻率（秒）
+    save_interval = 1.0
     last_save_time = 0
 
     with open(humi_filename, 'a') as f:
 
         while True:
             try:
-                line = ser_humi.readline().decode().strip()
+                line = ser_humi.readline().decode(errors='ignore').strip()
 
                 if line:
                     try:
@@ -98,7 +122,6 @@ def humidity_thread():
                         with lock:
                             latest_humidity = hum
 
-                        # ===== 控制寫入頻率 =====
                         now_time = time.time()
 
                         if now_time - last_save_time >= save_interval:
@@ -111,8 +134,21 @@ def humidity_thread():
                     except:
                         pass
 
-            except Exception as e:
+            except OSError as e:
                 print("HUMI Error:", e)
+
+                # 👉 reconnect USB serial
+                try:
+                    ser_humi.close()
+                except:
+                    pass
+
+                time.sleep(1)
+                ser_humi = init_humi()
+
+            except Exception as e:
+                print("HUMI Fatal Error:", e)
+                time.sleep(1)
 
 
 # =========================
