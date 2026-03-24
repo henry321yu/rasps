@@ -21,15 +21,61 @@ os.makedirs(folder, exist_ok=True)
 
 now = datetime.now()
 
-gnss_filename = os.path.join(folder, f"gnss_log_{now.strftime('%y%m%d%H%M%S')}.ubx")
-humi_filename = os.path.join(folder, f"humi_log_{now.strftime('%y%m%d%H%M%S')}.txt")
-
-print("GNSS:", gnss_filename)
-print("HUMI:", humi_filename)
-
 latest_humidity = None
 lock = threading.Lock()
 start_time = time.time()
+
+# =========================
+# 每日切檔
+# =========================
+class DailyFile:
+    def __init__(self, folder, prefix, ext, mode):
+        self.folder = folder
+        self.prefix = prefix
+        self.ext = ext
+        self.mode = mode
+        self.file = None
+        self.current_date = None
+
+    def _new_filename(self):
+        now = datetime.now()
+        return os.path.join(
+            self.folder,
+            f"{self.prefix}_{now.strftime('%y%m%d%H%M%S')}.{self.ext}"
+        ), now.date()
+
+    def _open_new(self):
+        filename, date = self._new_filename()
+        self.current_date = date
+        print(f"[FILE] New file: {filename}")
+        self.file = open(filename, self.mode)
+
+    def write(self, data):
+        now_date = datetime.now().date()
+
+        if self.file is None or now_date != self.current_date:
+            if self.file:
+                self.file.close()
+            self._open_new()
+
+        self.file.write(data)
+        self.file.flush()
+
+    def write_binary(self, data):
+        now_date = datetime.now().date()
+
+        if self.file is None or now_date != self.current_date:
+            if self.file:
+                self.file.close()
+            self._open_new()
+
+        self.file.write(data)
+        self.file.flush()
+
+
+# 初始化 file handler
+gnss_file = DailyFile(folder, "gnss_log", "ubx", "ab")
+humi_file = DailyFile(folder, "humi_log", "txt", "a")
 
 # =========================
 # FIND PORT BY VID/PID
@@ -84,30 +130,28 @@ ser_humi = init_humi()
 def gnss_thread():
     global ser_gnss, ubr
 
-    with open(gnss_filename, 'ab') as f:
-        while True:
-            try:
-                raw, parsed = ubr.read()
+    while True:
+        try:
+            raw, parsed = ubr.read()
 
-                if raw:
-                    f.write(raw)
-                    f.flush()
+            if raw:
+                gnss_file.write_binary(raw)
 
-                if parsed and parsed.identity == "NAV-PVT":
-                    elapsed = time.time() - start_time
-                    size_mb = f.tell() / (1024 * 1024)
+            if parsed and parsed.identity == "NAV-PVT":
+                elapsed = time.time() - start_time
+                size_mb = os.path.getsize(gnss_file.file.name) / (1024 * 1024) if gnss_file.file else 0
 
-                    dt = datetime(parsed.year, parsed.month, parsed.day,
-                                  parsed.hour, parsed.min, parsed.second)
-                    local_time = dt + timedelta(hours=8)
+                dt = datetime(parsed.year, parsed.month, parsed.day,
+                              parsed.hour, parsed.min, parsed.second)
+                local_time = dt + timedelta(hours=8)
 
-                    hAcc = parsed.hAcc / 1000
-                    vAcc = parsed.vAcc / 1000
+                hAcc = parsed.hAcc / 1000
+                vAcc = parsed.vAcc / 1000
 
-                    with lock:
-                        hum = latest_humidity
+                with lock:
+                    hum = latest_humidity
 
-                    print(f"""
+                print(f"""
 Uptime: {elapsed:.1f} sec
 Gnss File size: {size_mb:.2f} MB
 Time: {local_time}
@@ -117,23 +161,23 @@ VAcc: {vAcc:.3f} m
 Humidity: {hum} %
 """)
 
-            except OSError as e:
-                if "returned no data" in str(e):
-                    continue
+        except OSError as e:
+            if "returned no data" in str(e):
+                continue
 
-                print("[GNSS] Error:", e)
+            print("[GNSS] Error:", e)
 
-                try:
-                    ser_gnss.close()
-                except:
-                    pass
+            try:
+                ser_gnss.close()
+            except:
+                pass
 
-                time.sleep(1)
-                ser_gnss, ubr = init_gnss()
+            time.sleep(1)
+            ser_gnss, ubr = init_gnss()
 
-            except Exception as e:
-                print("[GNSS] Fatal:", e)
-                time.sleep(1)
+        except Exception as e:
+            print("[GNSS] Fatal:", e)
+            time.sleep(1)
 
 # =========================
 # HUMIDITY THREAD
@@ -144,46 +188,44 @@ def humidity_thread():
     save_interval = 1.0
     last_save_time = 0
 
-    with open(humi_filename, 'a') as f:
-        while True:
-            try:
-                line = ser_humi.readline().decode(errors='ignore').strip()
+    while True:
+        try:
+            line = ser_humi.readline().decode(errors='ignore').strip()
 
-                if line:
-                    try:
-                        hum = float(line)
-
-                        with lock:
-                            latest_humidity = hum
-
-                        now_time = time.time()
-
-                        if now_time - last_save_time >= save_interval:
-                            last_save_time = now_time
-                            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-4]
-                            f.write(f"{timestamp},{hum:.2f}\n")
-                            f.flush()
-
-                    except:
-                        pass
-
-            except OSError as e:
-                if "returned no data" in str(e):
-                    continue
-
-                print("[HUMI] Error:", e)
-
+            if line:
                 try:
-                    ser_humi.close()
+                    hum = float(line)
+
+                    with lock:
+                        latest_humidity = hum
+
+                    now_time = time.time()
+
+                    if now_time - last_save_time >= save_interval:
+                        last_save_time = now_time
+                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-4]
+                        humi_file.write(f"{timestamp},{hum:.2f}\n")
+
                 except:
                     pass
 
-                time.sleep(1)
-                ser_humi = init_humi()
+        except OSError as e:
+            if "returned no data" in str(e):
+                continue
 
-            except Exception as e:
-                print("[HUMI] Fatal:", e)
-                time.sleep(1)
+            print("[HUMI] Error:", e)
+
+            try:
+                ser_humi.close()
+            except:
+                pass
+
+            time.sleep(1)
+            ser_humi = init_humi()
+
+        except Exception as e:
+            print("[HUMI] Fatal:", e)
+            time.sleep(1)
 
 # =========================
 # START
