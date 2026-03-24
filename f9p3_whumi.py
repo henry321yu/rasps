@@ -6,6 +6,15 @@ from pyubx2 import UBXReader
 from datetime import datetime, timedelta
 from serial.tools import list_ports
 
+# =========================
+# VID / PID
+# =========================
+GNSS_VID = 0x1546
+GNSS_PID = 0x01A9
+
+HUMI_VID = 0x0403
+HUMI_PID = 0x6001
+
 # ===== folder =====
 folder = "f9p"
 os.makedirs(folder, exist_ok=True)
@@ -18,28 +27,25 @@ humi_filename = os.path.join(folder, f"humi_log_{now.strftime('%y%m%d%H%M%S')}.t
 print("GNSS:", gnss_filename)
 print("HUMI:", humi_filename)
 
-# ===== shared variable =====
 latest_humidity = None
 lock = threading.Lock()
-
 start_time = time.time()
 
 # =========================
-# PORT FINDER
+# FIND PORT BY VID/PID
 # =========================
-def find_port(keyword):
-    ports = list_ports.comports()
-    for p in ports:
-        if keyword in p.device:
+def find_port(vid, pid):
+    for p in list_ports.comports():
+        if p.vid == vid and p.pid == pid:
             return p.device
     return None
 
 # =========================
-# INIT FUNCTIONS (BLOCKING)
+# INIT GNSS
 # =========================
 def init_gnss():
     while True:
-        port = find_port("ACM")
+        port = find_port(GNSS_VID, GNSS_PID)
         if port:
             try:
                 ser = serial.Serial(port, 115200, timeout=1)
@@ -51,10 +57,12 @@ def init_gnss():
         print("[GNSS] Waiting device...")
         time.sleep(1)
 
-
+# =========================
+# INIT HUMI
+# =========================
 def init_humi():
     while True:
-        port = find_port("USB")
+        port = find_port(HUMI_VID, HUMI_PID)
         if port:
             try:
                 ser = serial.Serial(port, 115200, timeout=1)
@@ -67,7 +75,6 @@ def init_humi():
         print("[HUMI] Waiting device...")
         time.sleep(1)
 
-
 ser_gnss, ubr = init_gnss()
 ser_humi = init_humi()
 
@@ -78,7 +85,6 @@ def gnss_thread():
     global ser_gnss, ubr
 
     with open(gnss_filename, 'ab') as f:
-
         while True:
             try:
                 raw, parsed = ubr.read()
@@ -112,9 +118,7 @@ Humidity: {hum} %
 """)
 
             except OSError as e:
-                msg = str(e)
-
-                if "returned no data" in msg:
+                if "returned no data" in str(e):
                     continue
 
                 print("[GNSS] Error:", e)
@@ -131,7 +135,6 @@ Humidity: {hum} %
                 print("[GNSS] Fatal:", e)
                 time.sleep(1)
 
-
 # =========================
 # HUMIDITY THREAD
 # =========================
@@ -142,7 +145,6 @@ def humidity_thread():
     last_save_time = 0
 
     with open(humi_filename, 'a') as f:
-
         while True:
             try:
                 line = ser_humi.readline().decode(errors='ignore').strip()
@@ -158,7 +160,6 @@ def humidity_thread():
 
                         if now_time - last_save_time >= save_interval:
                             last_save_time = now_time
-
                             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-4]
                             f.write(f"{timestamp},{hum:.2f}\n")
                             f.flush()
@@ -167,9 +168,7 @@ def humidity_thread():
                         pass
 
             except OSError as e:
-                msg = str(e)
-
-                if "returned no data" in msg:
+                if "returned no data" in str(e):
                     continue
 
                 print("[HUMI] Error:", e)
@@ -186,9 +185,8 @@ def humidity_thread():
                 print("[HUMI] Fatal:", e)
                 time.sleep(1)
 
-
 # =========================
-# START THREADS
+# START
 # =========================
 t1 = threading.Thread(target=gnss_thread, daemon=True)
 t2 = threading.Thread(target=humidity_thread, daemon=True)
