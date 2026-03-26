@@ -1,29 +1,59 @@
-from pymodbus.client.sync import ModbusSerialClient as ModbusClient
+from pymodbus.client.sync import ModbusSerialClient
+import time
 
-client = ModbusClient(
-    port='COM8',
-    baudrate=9600,
-    parity='N',
-    stopbits=1,
-    bytesize=8,
-    timeout=3
-)
-client.connect()
+# 串口設定
+port = 'COM8'  # 改成你的 COM
+parity = 'N'
+stopbits = 1
+bytesize = 8
+timeout = 1
 
-if not client.connect():
-    print("連線失敗")
-    exit()
+# 常見波特率
+# baudrates = [9600, 19200, 38400]
+baudrates = [9600]
 
-slave_id = 0x01
+# 掃描範圍
+unit_ids = range(1, 2)        # 從站地址常見 1~4
+registers = range(6, 8)     # 常見寄存器 0~127
 
-try:
-    result = client.read_holding_registers(address=0, count=2, unit=slave_id)
+print("開始掃描 RS485 Modbus 設備...\n")
 
-    if result.isError():
-        print("讀取失敗")
-    else:
-        temperature = result.registers[0] / 10.0
-        humidity = result.registers[1] / 10.0
-        print(f"溫度: {temperature} °C, 濕度: {humidity} %")
-finally:
-    client.close()
+while True:
+    for baud in baudrates:
+        # print(f"嘗試波特率: {baud}")
+        client = ModbusSerialClient(
+            port=port,
+            baudrate=baud,
+            parity=parity,
+            stopbits=stopbits,
+            bytesize=bytesize,
+            timeout=timeout,
+            method='rtu'
+        )
+
+        if not client.connect():
+            # print(f"無法連線，波特率 {baud} 跳過")
+            continue
+
+        for unit in unit_ids:
+            for addr in registers:
+                try:
+                    result = client.read_holding_registers(address=addr, count=1, unit=unit)
+                    if not result.isError():
+                        value = result.registers[0]
+                        # print(f"address={addr}, value={value}\t",end='')
+                        if addr == 6:
+                            print(f"溫度 : {value}\t",end='')
+                        if addr == 7:
+                            print(f"濕度 : {value}",end='')
+
+
+                except Exception as e:
+                    # 可以忽略錯誤
+                    pass
+
+        client.close()
+        # print(f"波特率 {baud} 掃描完成\n")
+    print("")
+
+# print("掃描結束")
