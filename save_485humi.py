@@ -1,5 +1,6 @@
 from pymodbus.client.sync import ModbusSerialClient
 import time
+import os
 from datetime import datetime
 
 # =========================
@@ -37,14 +38,21 @@ if not client.connect():
     exit()
 
 # =========================
+# 設定儲存資料夾
+# =========================
+folder = "/home/admin/Desktop/f9p"  # 修改成你的 f9p 資料夾路徑
+os.makedirs(folder, exist_ok=True)  # 如果資料夾不存在就自動建立
+
+# =========================
 # 產生檔名 (以程式執行時間)
 # =========================
 now = datetime.now()
-filename = now.strftime("humi_%y%m%d%H%M.txt")  # humi_2603261812.txt
-print(f"數據將儲存至: {filename}")
+filename = now.strftime("humi_%y%m%d%H%M%S.txt")
+filepath = os.path.join(folder, filename)  # 完整路徑
+print(f"數據將儲存至: {filepath}")
 
 # 開啟檔案寫入模式
-file = open(filename, "w")
+file = open(filepath, "w")
 file.write("時間,溫度,濕度\n")  # 標題行，可省略
 
 print("開始讀取並儲存溫濕度...\n")
