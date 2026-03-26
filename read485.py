@@ -4,7 +4,7 @@ import time
 # =========================
 # 串口設定
 # =========================
-port = 'COM8'       # 改成你的 COM
+port = 'COM11'       # 改成你的 COM
 baudrate = 9600
 parity = 'N'
 stopbits = 1
