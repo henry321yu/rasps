@@ -46,7 +46,7 @@ while True:
             continue
 
         # 解析時間
-        T['datetime'] = pd.to_datetime(T['datetime'], format='%Y-%m-%d %H:%M:%S.%f', errors='coerce')
+        T['datetime'] = pd.to_datetime(T['datetime'], errors='coerce')
         T['temperature'] = pd.to_numeric(T['temperature'], errors='coerce')
         T['humidity'] = pd.to_numeric(T['humidity'], errors='coerce')
 
