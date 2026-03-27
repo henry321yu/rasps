@@ -12,7 +12,7 @@ import time
 # =========================
 folder = ''  # 設定你的資料夾路徑
 
-smoothk = 100
+smoothk = 10
 
 plt.rcParams['font.family'] = 'Microsoft JhengHei'
 plt.ion()
@@ -26,7 +26,7 @@ while True:
     for filepath in file_list:
         filename = os.path.basename(filepath)
 
-        # 解析檔名時間 YYYYMMDDHHMMSS
+        # 解析檔名時間 YYMMDDHHMMSS
         match = re.match(r'humi_log_(\d{12})\.txt', filename)
         if not match:
             print(f'忽略檔案：{filename}')
@@ -49,6 +49,7 @@ while True:
         T['datetime'] = pd.to_datetime(T['datetime'], errors='coerce')
         T['humidity'] = pd.to_numeric(T['humidity'], errors='coerce')
 
+
         # 清掉錯誤資料
         T = T.dropna()
 
@@ -66,6 +67,7 @@ while True:
 
     x = T_all['datetime']
     y = T_all['humidity']
+
 
     # 平滑
     y_smooth = y.rolling(smoothk, min_periods=1).mean()
