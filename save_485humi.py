@@ -53,7 +53,7 @@ print(f"數據將儲存至: {filepath}")
 
 # 開啟檔案寫入模式
 file = open(filepath, "w")
-file.write("時間,溫度,濕度\n")  # 標題行，可省略
+# file.write("時間,溫度,濕度\n")  # 標題行，可省略
 
 print("開始讀取並儲存溫濕度...\n")
 
