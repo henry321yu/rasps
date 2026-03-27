@@ -82,14 +82,14 @@ while True:
     # =========================
     ax.clear()
 
-    ax.plot(x, y_temp_smooth, color='red', marker='.', linestyle='None', markersize=1, label='Temperature')
-    ax.plot(x, y_humi_smooth, color='blue', marker='.', linestyle='None', markersize=1, label='Humidity')
+    ax.plot(x, y_temp_smooth, marker='.', linestyle='None', markersize=1, label='Temperature')
+    ax.plot(x, y_humi_smooth, marker='.', linestyle='None', markersize=1, label='Humidity')
 
-    ax.plot(x_1, temp_end, 'ro')
-    ax.text(x_1, temp_end, f'{temp_end:.2f}', fontsize=10, color='red', verticalalignment='bottom')
+    ax.plot(x_1, temp_end, 'o')
+    ax.text(x_1, temp_end, f'{temp_end:.2f}', fontsize=10, verticalalignment='bottom')
 
-    ax.plot(x_1, humi_end, 'bo')
-    ax.text(x_1, humi_end, f'{humi_end:.2f}', fontsize=10, color='blue', verticalalignment='bottom')
+    ax.plot(x_1, humi_end, 'o')
+    ax.text(x_1, humi_end, f'{humi_end:.2f}', fontsize=10, verticalalignment='bottom')
 
     print(f'目前溫度: {temp_end:.2f}, 濕度: {humi_end:.2f}')
 
@@ -104,4 +104,4 @@ while True:
 
     plt.draw()
     print(f"✅ 圖表更新完成：{datetime.now().strftime('%H:%M:%S')}")
-    plt.pause(10)
+    plt.pause(5)
