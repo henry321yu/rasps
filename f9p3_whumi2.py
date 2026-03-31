@@ -23,6 +23,7 @@ os.makedirs(folder, exist_ok=True)
 now = datetime.now()
 
 latest_humidity = None
+latest_temperature = None
 lock = threading.Lock()
 start_time = time.time()
 
@@ -169,6 +170,7 @@ def gnss_thread():
 
                 with lock:
                     hum = latest_humidity
+                    temp = latest_temperature
 
                 print(f"""
 Uptime: {elapsed:.1f} sec
@@ -179,6 +181,7 @@ Satellites: {parsed.numSV}
 HAcc: {hAcc:.3f} m
 VAcc: {vAcc:.3f} m
 Humidity: {hum} %
+Temperature: {temp} °C
 """)
 
         except OSError as e:
@@ -203,7 +206,7 @@ Humidity: {hum} %
 # HUMIDITY THREAD
 # =========================
 def humidity_thread():
-    global ser_humi, latest_humidity
+    global ser_humi, latest_humidity ,latest_temperature
 
     save_interval = 1.0
     last_save_time = 0
@@ -243,6 +246,7 @@ def humidity_thread():
 
                 with lock:
                     latest_humidity = hum
+                    latest_temperature = temp
 
                 now_time = time.time()
 
