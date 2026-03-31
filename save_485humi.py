@@ -88,7 +88,7 @@ try:
         except Exception:
             continue
 
-        time.sleep(1)  # 每秒讀取一次
+        time.sleep(0.2)  # 每秒讀取一次
 
 finally:
     client.close()
