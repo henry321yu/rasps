@@ -5,6 +5,7 @@ import time
 from pyubx2 import UBXReader
 from datetime import datetime, timedelta
 from serial.tools import list_ports
+from pymodbus.client.sync import ModbusSerialClient
 
 # =========================
 # VID / PID
@@ -12,8 +13,8 @@ from serial.tools import list_ports
 GNSS_VID = 0x1546
 GNSS_PID = 0x01A9
 
-HUMI_VID = 0x0403
-HUMI_PID = 0x6001
+HUMI_VID = 0x1A86
+HUMI_PID = 0x7523
 
 # ===== folder =====
 folder = "f9p"
@@ -111,10 +112,23 @@ def init_humi():
         port = find_port(HUMI_VID, HUMI_PID)
         if port:
             try:
-                ser = serial.Serial(port, 115200, timeout=1)
-                print(f"[HUMI] Connected: {port}")
-                time.sleep(2)
-                return ser
+                client = ModbusSerialClient(
+                    method='rtu',
+                    port=port,
+                    baudrate=9600,
+                    parity='N',
+                    stopbits=1,
+                    bytesize=8,
+                    timeout=1
+                )
+
+                if client.connect():
+                    print(f"[HUMI] Connected (Modbus): {port}")
+                    time.sleep(1)
+                    return client
+                else:
+                    print("[HUMI] Modbus connect failed")
+
             except Exception as e:
                 print("[HUMI] Open failed:", e)
 
@@ -188,31 +202,34 @@ def humidity_thread():
     save_interval = 1.0
     last_save_time = 0
 
+    unit_id = 1
+    register_humi = 7
+
     while True:
         try:
-            line = ser_humi.readline().decode(errors='ignore').strip()
+            result = ser_humi.read_holding_registers(
+                address=register_humi,
+                count=1,
+                unit=unit_id
+            )
 
-            if line:
-                try:
-                    hum = float(line)
+            if not result.isError():
+                raw = result.registers[0]
+                hum = raw / 100.0
 
-                    with lock:
-                        latest_humidity = hum
+                with lock:
+                    latest_humidity = hum
 
-                    now_time = time.time()
+                now_time = time.time()
 
-                    if now_time - last_save_time >= save_interval:
-                        last_save_time = now_time
-                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-4]
-                        humi_file.write(f"{timestamp},{hum:.2f}\n")
+                if now_time - last_save_time >= save_interval:
+                    last_save_time = now_time
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-4]
+                    humi_file.write(f"{timestamp},{hum:.2f}\n")
 
-                except:
-                    pass
+            time.sleep(0.2)
 
-        except OSError as e:
-            if "returned no data" in str(e):
-                continue
-
+        except Exception as e:
             print("[HUMI] Error:", e)
 
             try:
@@ -222,10 +239,6 @@ def humidity_thread():
 
             time.sleep(1)
             ser_humi = init_humi()
-
-        except Exception as e:
-            print("[HUMI] Fatal:", e)
-            time.sleep(1)
 
 # =========================
 # START
