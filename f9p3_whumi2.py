@@ -153,7 +153,12 @@ def gnss_thread():
 
             if parsed and parsed.identity == "NAV-PVT":
                 elapsed = time.time() - start_time
-                size_mb = os.path.getsize(gnss_file.file.name) / (1024 * 1024) if gnss_file.file else 0
+
+                gnss_size = os.path.getsize(gnss_file.file.name) if gnss_file.file else 0
+                humi_size = os.path.getsize(humi_file.file.name) if humi_file.file else 0
+
+                gnss_size_str = format_size(gnss_size)
+                humi_size_str = format_size(humi_size)
 
                 dt = datetime(parsed.year, parsed.month, parsed.day,
                               parsed.hour, parsed.min, parsed.second)
@@ -167,7 +172,8 @@ def gnss_thread():
 
                 print(f"""
 Uptime: {elapsed:.1f} sec
-Gnss File size: {size_mb:.2f} MB
+Gnss File size: {gnss_size_str}
+Humi File size: {humi_size_str}
 Time: {local_time}
 Satellites: {parsed.numSV}
 HAcc: {hAcc:.3f} m
@@ -203,19 +209,37 @@ def humidity_thread():
     last_save_time = 0
 
     unit_id = 1
+    register_temp = 6
     register_humi = 7
 
     while True:
         try:
-            result = ser_humi.read_holding_registers(
+            # ===== 讀溫度 =====
+            result_temp = ser_humi.read_holding_registers(
+                address=register_temp,
+                count=1,
+                unit=unit_id
+            )
+
+            temp = None
+            if not result_temp.isError():
+                raw_temp = result_temp.registers[0]
+                temp = raw_temp / 100.0
+
+            # ===== 讀濕度 =====
+            result_humi = ser_humi.read_holding_registers(
                 address=register_humi,
                 count=1,
                 unit=unit_id
             )
 
-            if not result.isError():
-                raw = result.registers[0]
-                hum = raw / 100.0
+            hum = None
+            if not result_humi.isError():
+                raw_humi = result_humi.registers[0]
+                hum = raw_humi / 100.0
+
+            # ===== 成功才寫入 =====
+            if temp is not None and hum is not None:
 
                 with lock:
                     latest_humidity = hum
@@ -225,7 +249,8 @@ def humidity_thread():
                 if now_time - last_save_time >= save_interval:
                     last_save_time = now_time
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-4]
-                    humi_file.write(f"{timestamp},{hum:.2f}\n")
+
+                    humi_file.write(f"{timestamp},{temp:.2f},{hum:.2f}\n")
 
             time.sleep(0.2)
 
@@ -239,6 +264,14 @@ def humidity_thread():
 
             time.sleep(1)
             ser_humi = init_humi()
+
+def format_size(bytes_size):
+    if bytes_size < 1024:
+        return f"{bytes_size} bytes"
+    elif bytes_size < 1024**2:
+        return f"{bytes_size/1024:.2f} KB"
+    else:
+        return f"{bytes_size/(1024**2):.2f} MB"
 
 # =========================
 # START
