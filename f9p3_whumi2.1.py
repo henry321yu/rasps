@@ -41,7 +41,7 @@ class DailyFile:
         self.current_date = None
 
     def _new_filename(self):
-        now = datetime.now()
+        now = datetime.utcnow()
         return os.path.join(
             self.folder,
             f"{self.prefix}_{now.strftime('%y%m%d%H%M%S')}.{self.ext}"
@@ -54,7 +54,7 @@ class DailyFile:
         self.file = open(filename, self.mode)
 
     def write(self, data):
-        now_date = datetime.now().date()
+        now_date = datetime.utcnow().date()
 
         if self.file is None or now_date != self.current_date:
             if self.file:
@@ -65,7 +65,7 @@ class DailyFile:
         self.file.flush()
 
     def write_binary(self, data):
-        now_date = datetime.now().date()
+        now_date = datetime.utcnow().date()
 
         if self.file is None or now_date != self.current_date:
             if self.file:
@@ -253,7 +253,7 @@ def humidity_thread():
 
                 if now_time - last_save_time >= save_interval:
                     last_save_time = now_time
-                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-4]
+                    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")[:-4]
 
                     humi_file.write(f"{timestamp},{temp:.2f},{hum:.2f}\n")
 
