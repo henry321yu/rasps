@@ -22,9 +22,7 @@ folder = "f9p"
 os.makedirs(folder, exist_ok=True)
 
 now = datetime.now()
-
-latest_humidity = None
-latest_temperature = None
+latest_data = {}   # 取代原本兩個變數
 lock = threading.Lock()
 start_time = time.time()
 
@@ -170,8 +168,11 @@ def gnss_thread():
                 vAcc = parsed.vAcc / 1000
 
                 with lock:
-                    hum = latest_humidity
-                    temp = latest_temperature
+                    data_copy = latest_data.copy()
+
+                humi_str = ""
+                for uid, (t, h) in data_copy.items():
+                    humi_str += f"ID{uid}: {h:.2f}% {t:.2f}°C | "
 
                 print(f"""
 Uptime: {elapsed:.1f} sec
@@ -181,8 +182,7 @@ Time: {local_time}
 Satellites: {parsed.numSV}
 HAcc: {hAcc:.3f} m
 VAcc: {vAcc:.3f} m
-Humidity: {hum} %
-Temperature: {temp} °C
+Humidity: {humi_str}
 """)
 
         except OSError as e:
@@ -207,60 +207,69 @@ Temperature: {temp} °C
 # HUMIDITY THREAD
 # =========================
 def humidity_thread():
-    global ser_humi, latest_humidity ,latest_temperature
+    global ser_humi, latest_data
 
     save_interval = 1.0
     last_save_time = 0
 
-    unit_id = 1
+    DEVICE_IDS = [1, 2]   # ⭐ 兩台設備
     register_temp = 6
     register_humi = 7
 
     while True:
         try:
-            # ===== 讀溫度 =====
-            result_temp = ser_humi.read_holding_registers(
-                address=register_temp,
-                count=1,
-                unit=unit_id
-            )
+            now_time = time.time()
 
-            temp = None
-            if not result_temp.isError():
-                raw_temp = result_temp.registers[0]
-                temp = raw_temp / 100.0
+            for unit_id in DEVICE_IDS:
+                try:
+                    # ===== 讀溫度 =====
+                    result_temp = ser_humi.read_holding_registers(
+                        address=register_temp,
+                        count=1,
+                        unit=unit_id
+                    )
 
-            # ===== 讀濕度 =====
-            result_humi = ser_humi.read_holding_registers(
-                address=register_humi,
-                count=1,
-                unit=unit_id
-            )
+                    temp = None
+                    if not result_temp.isError():
+                        temp = result_temp.registers[0] / 100.0
 
-            hum = None
-            if not result_humi.isError():
-                raw_humi = result_humi.registers[0]
-                hum = raw_humi / 100.0
+                    # ===== 讀濕度 =====
+                    result_humi = ser_humi.read_holding_registers(
+                        address=register_humi,
+                        count=1,
+                        unit=unit_id
+                    )
 
-            # ===== 成功才寫入 =====
-            if temp is not None and hum is not None:
+                    hum = None
+                    if not result_humi.isError():
+                        hum = result_humi.registers[0] / 100.0
 
-                with lock:
-                    latest_humidity = hum
-                    latest_temperature = temp
+                    if temp is not None and hum is not None:
 
-                now_time = time.time()
+                        with lock:
+                            latest_data[unit_id] = (temp, hum)
 
-                if now_time - last_save_time >= save_interval:
-                    last_save_time = now_time
-                    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")[:-4]
+                        # 控制寫入頻率（共用）
+                        if now_time - last_save_time >= save_interval:
+                            timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")[:-4]
 
-                    humi_file.write(f"{timestamp},{temp:.2f},{hum:.2f}\n")
+                            humi_file.write(
+                                f"{timestamp},{unit_id},{temp:.2f},{hum:.2f}\n"
+                            )
+
+                except Exception as e:
+                    print(f"[HUMI] ID{unit_id} error:", e)
+
+                # 很重要：避免 RS485 擁塞
+                time.sleep(0.05)
+
+            if now_time - last_save_time >= save_interval:
+                last_save_time = now_time
 
             time.sleep(0.2)
 
         except Exception as e:
-            print("[HUMI] Error:", e)
+            print("[HUMI] Fatal:", e)
 
             try:
                 ser_humi.close()
