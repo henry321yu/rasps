@@ -109,7 +109,7 @@ while True:
     # =========================
     # 圖表設定
     # =========================
-    ax.set_title(f'{T_all["datetime"].iloc[0]} ~ {T_all["datetime"].iloc[-1]}')
+    ax.set_title(f'{T_all["datetime"].iloc[0].strftime("%Y-%m-%d %H:%M:%S")} ~ {T_all["datetime"].iloc[-1].strftime("%Y-%m-%d %H:%M:%S")}')
     ax.set_xlabel('Time')
     ax.set_ylabel('Value')
     ax.grid(True)
