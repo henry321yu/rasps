@@ -20,14 +20,13 @@ plt.ion()
 fig, ax = plt.subplots()
 
 while True:
-    T_all = pd.DataFrame()
+    all_rows = []
 
     file_list = sorted(glob.glob(os.path.join(folder, 'humi_log_*.txt')))
 
     for filepath in file_list:
         filename = os.path.basename(filepath)
 
-        # 解析檔名時間 YYMMDDHHMMSS
         match = re.match(r'humi_log_(\d{12})\.txt', filename)
         if not match:
             print(f'忽略檔案：{filename}')
@@ -36,65 +35,81 @@ while True:
         print(f'讀取：{filename}')
 
         try:
-            # 讀取無標題 CSV, 新格式: datetime, temperature, humidity
-            T = pd.read_csv(filepath, header=None, names=['datetime', 'temperature', 'humidity'])
+            df = pd.read_csv(filepath, header=None)
         except Exception as e:
-            print(f'⚠️ 無法讀取 {filename}，錯誤：{e}')
+            print(f'⚠️ 讀取失敗 {filename}：{e}')
             continue
 
-        if T.empty:
-            print(f'⚠️ 檔案 {filename} 沒有資料')
+        if df.empty:
             continue
 
-        # 解析時間
-        T['datetime'] = pd.to_datetime(T['datetime'], errors='coerce')
-        T['temperature'] = pd.to_numeric(T['temperature'], errors='coerce')
-        T['humidity'] = pd.to_numeric(T['humidity'], errors='coerce')
+        # =========================
+        # 每一列處理
+        # =========================
+        for _, row in df.iterrows():
+            try:
+                dt = pd.to_datetime(row.iloc[0], errors='coerce')
+                if pd.isna(dt):
+                    continue
 
-        # 清掉錯誤資料
-        T = T.dropna()
+                values = row.iloc[1:].values
 
-        T_all = pd.concat([T_all, T], ignore_index=True)
+                # 每 3 個一組: (id, temp, humi)
+                for i in range(0, len(values), 3):
+                    if i + 2 >= len(values):
+                        break
 
-    if T_all.empty:
-        print('⚠️ 沒有讀取到任何資料，5 秒後重試')
+                    device_id = values[i]
+                    temp = pd.to_numeric(values[i + 1], errors='coerce')
+                    humi = pd.to_numeric(values[i + 2], errors='coerce')
+
+                    if pd.isna(temp) or pd.isna(humi):
+                        continue
+
+                    all_rows.append([dt, int(device_id), temp, humi])
+
+            except Exception as e:
+                print(f'⚠️ row error: {e}')
+
+    if not all_rows:
+        print('⚠️ 無資料，5 秒後重試')
         time.sleep(5)
         continue
 
     # =========================
-    # 排序時間
+    # 建 DataFrame
     # =========================
+    T_all = pd.DataFrame(all_rows, columns=['datetime', 'device', 'temperature', 'humidity'])
     T_all = T_all.sort_values(by='datetime')
 
-    x = T_all['datetime']
-    y_temp = T_all['temperature']
-    y_humi = T_all['humidity']
-
-    # 平滑
-    y_temp_smooth = y_temp.rolling(smoothk, min_periods=1).mean()
-    y_humi_smooth = y_humi.rolling(smoothk, min_periods=1).mean()
-
-    x_1 = x.iloc[-1]
-    temp_end = y_temp_smooth.iloc[-1]
-    humi_end = y_humi_smooth.iloc[-1]
-
-    # =========================
-    # 畫圖
-    # =========================
     ax.clear()
 
-    ax.plot(x, y_temp_smooth, marker='.', linestyle='None', markersize=1, label='Temperature')
-    ax.plot(x, y_humi_smooth, marker='.', linestyle='None', markersize=1, label='Humidity')
+    devices = T_all['device'].unique()
 
-    ax.plot(x_1, temp_end, 'o')
-    ax.text(x_1, temp_end, f'{temp_end:.2f}', fontsize=10, verticalalignment='bottom')
+    for dev in devices:
+        df_dev = T_all[T_all['device'] == dev].sort_values('datetime')
 
-    ax.plot(x_1, humi_end, 'o')
-    ax.text(x_1, humi_end, f'{humi_end:.2f}', fontsize=10, verticalalignment='bottom')
+        x = df_dev['datetime']
 
-    print(f'目前溫度: {temp_end:.2f}, 濕度: {humi_end:.2f}')
+        y_temp = df_dev['temperature'].rolling(smoothk, min_periods=1).mean()
+        y_humi = df_dev['humidity'].rolling(smoothk, min_periods=1).mean()
 
-    ax.set_title(f'{x.iloc[0].strftime("%Y-%m-%d %H:%M:%S")} ~ {x_1.strftime("%Y-%m-%d %H:%M:%S")}')
+        ax.plot(x, y_temp, marker='.', linestyle='None', markersize=2, label=f'DEV{dev} Temp')
+        ax.plot(x, y_humi, marker='.', linestyle='None', markersize=2, label=f'DEV{dev} Humi')
+
+        # 最新值標記
+        ax.plot(x.iloc[-1], y_temp.iloc[-1], 'o')
+        ax.text(x.iloc[-1], y_temp.iloc[-1], f'{y_temp.iloc[-1]:.2f}')
+
+        ax.plot(x.iloc[-1], y_humi.iloc[-1], 'o')
+        ax.text(x.iloc[-1], y_humi.iloc[-1], f'{y_humi.iloc[-1]:.2f}')
+
+        print(f'DEV{dev} 溫度: {y_temp.iloc[-1]:.2f}, 濕度: {y_humi.iloc[-1]:.2f}')
+
+    # =========================
+    # 圖表設定
+    # =========================
+    ax.set_title(f'{T_all["datetime"].iloc[0]} ~ {T_all["datetime"].iloc[-1]}')
     ax.set_xlabel('Time')
     ax.set_ylabel('Value')
     ax.grid(True)
@@ -104,5 +119,5 @@ while True:
     fig.autofmt_xdate()
 
     plt.draw()
-    print(f"✅ 圖表更新完成：{datetime.now().strftime('%H:%M:%S')}")
+    print(f"✅ 更新完成：{datetime.now().strftime('%H:%M:%S')}")
     plt.pause(plot_delay)
