@@ -14,13 +14,17 @@ folder = ''  # 設定你的資料夾路徑
 
 smoothk = 1
 plot_delay = 5
+last_datas = 999999
 
 plt.rcParams['font.family'] = 'Microsoft JhengHei'
 plt.ion()
 fig, ax = plt.subplots()
 
+# 👉 新增：記錄檔案大小，避免重複讀
+last_size = {}
+
 while True:
-    all_rows = []
+    all_dfs = []
 
     file_list = sorted(glob.glob(os.path.join(folder, 'humi_log_*.txt')))
 
@@ -32,10 +36,34 @@ while True:
             print(f'忽略檔案：{filename}')
             continue
 
+        # =========================
+        # 👉 檢查檔案是否有更新（避免重讀）
+        # =========================
+        try:
+            current_size = os.path.getsize(filepath)
+        except Exception as e:
+            print(f'⚠️ 讀取檔案大小失敗 {filename}：{e}')
+            continue
+
+        if filepath in last_size and current_size == last_size[filepath]:
+            continue  # 沒變就跳過
+
+        last_size[filepath] = current_size
+
         print(f'讀取：{filename}')
 
         try:
-            df = pd.read_csv(filepath, header=None)
+            # =========================
+            # 👉 高效讀取（取代 iterrows）
+            # =========================
+            df = pd.read_csv(
+                filepath,
+                names=['datetime', 'device', 'temperature', 'humidity']
+            )
+
+            df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
+            df = df.dropna()
+
         except Exception as e:
             print(f'⚠️ 讀取失敗 {filename}：{e}')
             continue
@@ -43,43 +71,20 @@ while True:
         if df.empty:
             continue
 
-        # =========================
-        # 每一列處理
-        # =========================
-        for _, row in df.iterrows():
-            try:
-                dt = pd.to_datetime(row.iloc[0], errors='coerce')
-                if pd.isna(dt):
-                    continue
+        all_dfs.append(df)
 
-                values = row.iloc[1:].values
+    if not all_dfs:
+        print('⚠️ 無新資料，等待更新...')
 
-                # 每 3 個一組: (id, temp, humi)
-                for i in range(0, len(values), 3):
-                    if i + 2 >= len(values):
-                        break
+        # 👉 關鍵：維持 matplotlib GUI 不凍結
+        plt.pause(plot_delay)
 
-                    device_id = values[i]
-                    temp = pd.to_numeric(values[i + 1], errors='coerce')
-                    humi = pd.to_numeric(values[i + 2], errors='coerce')
-
-                    if pd.isna(temp) or pd.isna(humi):
-                        continue
-
-                    all_rows.append([dt, int(device_id), temp, humi])
-
-            except Exception as e:
-                print(f'⚠️ row error: {e}')
-
-    if not all_rows:
-        print('⚠️ 無資料，5 秒後重試')
-        time.sleep(5)
         continue
 
     # =========================
     # 建 DataFrame
     # =========================
-    T_all = pd.DataFrame(all_rows, columns=['datetime', 'device', 'temperature', 'humidity'])
+    T_all = pd.concat(all_dfs, ignore_index=True)
     T_all = T_all.sort_values(by='datetime')
 
     ax.clear()
@@ -89,6 +94,9 @@ while True:
     for dev in devices:
         df_dev = T_all[T_all['device'] == dev].sort_values('datetime')
 
+        # 👉 避免畫太多點造成卡頓
+        df_dev = df_dev.tail(last_datas)
+
         x = df_dev['datetime']
 
         y_temp = df_dev['temperature'].rolling(smoothk, min_periods=1).mean()
@@ -97,12 +105,22 @@ while True:
         ax.plot(x, y_temp, marker='.', linestyle='None', markersize=2, label=f'DEV{dev} Temp')
         ax.plot(x, y_humi, marker='.', linestyle='None', markersize=2, label=f'DEV{dev} Humi')
 
-        # 最新值標記
+        # 最新值標記（含名稱）
         ax.plot(x.iloc[-1], y_temp.iloc[-1], 'o')
-        ax.text(x.iloc[-1], y_temp.iloc[-1], f'{y_temp.iloc[-1]:.2f}')
+        ax.text(
+            x.iloc[-1],
+            y_temp.iloc[-1],
+            f'DEV{int(dev)} Temp: {y_temp.iloc[-1]:.2f}',
+            fontsize=8
+        )
 
         ax.plot(x.iloc[-1], y_humi.iloc[-1], 'o')
-        ax.text(x.iloc[-1], y_humi.iloc[-1], f'{y_humi.iloc[-1]:.2f}')
+        ax.text(
+            x.iloc[-1],
+            y_humi.iloc[-1],
+            f'DEV{int(dev)} Humi: {y_humi.iloc[-1]:.2f}',
+            fontsize=8
+        )
 
         print(f'DEV{dev} 溫度: {y_temp.iloc[-1]:.2f}, 濕度: {y_humi.iloc[-1]:.2f}')
 
