@@ -31,24 +31,18 @@ DEFAULT_DISPLAY_POINTS = 1000
 MIN_DISPLAY_POINTS = 100
 MAX_DISPLAY_POINTS = 30000
 
-# 全域動態控制變數 (執行時會變動)
-global_interval_sec = DEFAULT_UPDATE_INTERVAL_MS / 1000.0
-global_average_n = DEFAULT_AVERAGE_N
-global_display_points = DEFAULT_DISPLAY_POINTS
-
 # ==================================================
 # UDP 設定與 Data Buffers
 # ==================================================
 ADXL_PORT = 2870
 IMAGE_PORT = 2885
 
-MAX_POINTS = max(30000, MAX_DISPLAY_POINTS)
+MAX_BUFFER_LEN = 300000 
 
-t_buf = deque(maxlen=MAX_POINTS)
-ax_buf = deque(maxlen=MAX_POINTS)
-ay_buf = deque(maxlen=MAX_POINTS)
-az_buf = deque(maxlen=MAX_POINTS)
-vector_buf = deque(maxlen=MAX_POINTS)
+# 【修正 2】：將 5 個獨立的 deque 合併為 1 個，解決執行緒讀寫造成的長度錯位
+data_buf = deque(maxlen=MAX_BUFFER_LEN)
+# 全域封包計數器，用來對齊平均運算的區塊邊界
+global_packet_count = 0
 
 latest_frame = None
 
@@ -56,13 +50,10 @@ latest_frame = None
 # ADXL355 & Camera UDP Receivers
 # ==================================================
 def adxl_receiver():
-    global global_average_n
+    global global_packet_count
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(("0.0.0.0", ADXL_PORT))
     print(f"Listening ADXL355 UDP {ADXL_PORT}")
-
-    count = 0
-    sum_ax = sum_ay = sum_az = 0.0
 
     while True:
         try:
@@ -72,24 +63,11 @@ def adxl_receiver():
 
             if len(parts) == 5:
                 ax, ay, az = float(parts[1]), float(parts[2]), float(parts[3])
-                sum_ax += ax
-                sum_ay += ay
-                sum_az += az
-                count += 1
-
-                if count >= global_average_n:
-                    avg_ax, avg_ay, avg_az = sum_ax / count, sum_ay / count, sum_az / count
-                    avg_vector = math.sqrt(avg_ax**2 + avg_ay**2 + avg_az**2)
-                    current_time = datetime.now().strftime('%H:%M:%S.%f')[:-4]
-
-                    t_buf.append(current_time)
-                    ax_buf.append(avg_ax)
-                    ay_buf.append(avg_ay)
-                    az_buf.append(avg_az)
-                    vector_buf.append(avg_vector)
-
-                    count = 0
-                    sum_ax = sum_ay = sum_az = 0.0
+                current_time = datetime.now().strftime('%H:%M:%S.%f')[:-4]
+                
+                global_packet_count += 1
+                # 將計數器、時間、三軸數據打包成 tuple 一次性寫入，保證原子性(Atomic)對齊
+                data_buf.append((global_packet_count, current_time, ax, ay, az))
         except Exception:
             pass
 
@@ -127,21 +105,18 @@ def client_monitor_thread():
         active_list = []
         
         with clients_lock:
-            for ip in list(clients_info.keys()):
-                info = clients_info[ip]
+            for cid in list(clients_info.keys()):
+                info = clients_info[cid]
                 is_streaming = info["streams"] > 0
-                
-                # 若超過 10 秒沒來拉取 /data 且沒在看影像，視為斷線
                 is_active = (now - info["last_seen"]) < 10
                 
                 if not is_streaming and not is_active:
-                    print(f"\n[-] 客戶端離線: {ip}")
-                    del clients_info[ip]
+                    print(f"\n[-] 客戶端離線: ID={cid[:8]} ({info['ip']})")
+                    del clients_info[cid]
                 else:
                     status = "觀看影像中" if is_streaming else "背景更新數據中"
                     cmd_info = f" | 最新指令: {info['last_command']}" if info['last_command'] else ""
-                    active_list.append(f"  - IP: {ip} [{status}]{cmd_info}")
-        
+                    active_list.append(f"  - ID: {cid[:8]} (IP: {info['ip']}) [{status}]{cmd_info}")
         # 如果有活躍客戶端，印出清單
         if active_list:
             print("\n=== 目前已連線客戶端 ===")
@@ -154,80 +129,87 @@ def client_monitor_thread():
 # ==================================================
 app = Flask(__name__)
 
-# ----- 請求攔截器 (記錄與追蹤指令) -----
 @app.before_request
 def track_client_connect():
+    client_id = request.args.get('client_id', request.remote_addr)
     ip = request.remote_addr
     path = request.path
     query = request.query_string.decode('utf-8')
     full_command = f"{path}?{query}" if query else path
     
     with clients_lock:
-        if ip not in clients_info:
-            clients_info[ip] = {"last_seen": time.time(), "streams": 0, "last_command": None}
-            print(f"\n[+] 新客戶端連線: {ip}")
+        if client_id not in clients_info:
+            clients_info[client_id] = {
+                "ip": ip,
+                "last_seen": time.time(), 
+                "streams": 0, 
+                "last_command": None,
+                "interval_sec": DEFAULT_UPDATE_INTERVAL_MS / 1000.0,
+                "avg_n": DEFAULT_AVERAGE_N,
+                "display_pts": DEFAULT_DISPLAY_POINTS
+            }
+            print(f"\n[+] 新客戶端連線: ID={client_id[:8]} ({ip})")
         
-        clients_info[ip]["last_seen"] = time.time()
+        clients_info[client_id]["last_seen"] = time.time()
         
-        # 即時捕捉並印出使用者的設定指令 (排除 /data 和 /camera 這種常態請求)
         if path.startswith('/set_'):
-            clients_info[ip]["last_command"] = full_command
-            print(f"\n[*] 客戶端 {ip} 發出指令: {full_command}")
+            clients_info[client_id]["last_command"] = full_command
+            print(f"\n[*] 客戶端 ID={client_id[:8]} 發出指令: {full_command}")
             
         elif path == '/camera':
-            clients_info[ip]["streams"] += 1
-            print(f"\n[>] 客戶端 {ip} 載入影像串流 (當前開啓 {clients_info[ip]['streams']} 個)")
+            clients_info[client_id]["streams"] += 1
+            print(f"\n[>] 客戶端 ID={client_id[:8]} 載入影像串流 (當前開啓 {clients_info[client_id]['streams']} 個)")
 
 @app.teardown_request
 def track_client_disconnect(exception=None):
-    ip = request.remote_addr
+    client_id = request.args.get('client_id', request.remote_addr)
     path = request.path
     
-    # 若瀏覽器斷開影像串流，則將串流計數 -1
     if path == '/camera':
         with clients_lock:
-            if ip in clients_info:
-                clients_info[ip]["streams"] = max(0, clients_info[ip]["streams"] - 1)
-                print(f"\n[<] 客戶端 {ip} 停止觀看影像串流")
+            if client_id in clients_info:
+                clients_info[client_id]["streams"] = max(0, clients_info[client_id]["streams"] - 1)
+                print(f"\n[<] 客戶端 ID={client_id[:8]} 停止觀看影像串流")
 
-
-# --------------------------------------------------
-# API: 動態控制項
-# --------------------------------------------------
 @app.route("/set_interval")
 def set_interval():
-    global global_interval_sec
+    client_id = request.args.get('client_id', request.remote_addr)
     try:
         ms = int(request.args.get('val', DEFAULT_UPDATE_INTERVAL_MS))
         ms = max(MIN_UPDATE_INTERVAL_MS, min(MAX_UPDATE_INTERVAL_MS, ms)) 
-        global_interval_sec = ms / 1000.0
+        with clients_lock:
+            if client_id in clients_info:
+                clients_info[client_id]["interval_sec"] = ms / 1000.0
         return jsonify({"status": "ok", "val": ms})
     except:
         return jsonify({"status": "error"}), 400
 
 @app.route("/set_average")
 def set_average():
-    global global_average_n
+    client_id = request.args.get('client_id', request.remote_addr)
     try:
         val = int(request.args.get('val', DEFAULT_AVERAGE_N))
-        global_average_n = max(MIN_AVERAGE_N, min(MAX_AVERAGE_N, val)) 
-        return jsonify({"status": "ok", "val": global_average_n})
+        val = max(MIN_AVERAGE_N, min(MAX_AVERAGE_N, val)) 
+        with clients_lock:
+            if client_id in clients_info:
+                clients_info[client_id]["avg_n"] = val
+        return jsonify({"status": "ok", "val": val})
     except:
         return jsonify({"status": "error"}), 400
 
 @app.route("/set_display")
 def set_display():
-    global global_display_points
+    client_id = request.args.get('client_id', request.remote_addr)
     try:
         val = int(request.args.get('val', DEFAULT_DISPLAY_POINTS))
-        global_display_points = max(MIN_DISPLAY_POINTS, min(MAX_DISPLAY_POINTS, val)) 
-        return jsonify({"status": "ok", "val": global_display_points})
+        val = max(MIN_DISPLAY_POINTS, min(MAX_DISPLAY_POINTS, val)) 
+        with clients_lock:
+            if client_id in clients_info:
+                clients_info[client_id]["display_pts"] = val
+        return jsonify({"status": "ok", "val": val})
     except:
         return jsonify({"status": "error"}), 400
 
-# --------------------------------------------------
-# Main Page
-# --------------------------------------------------
 @app.route("/")
 def index():
     html = """
@@ -263,7 +245,6 @@ def index():
     </style>
 </head>
 <body>
-
     <div class="header">
         <h1>Control Center</h1>
         <div class="controls-container">
@@ -284,12 +265,11 @@ def index():
             </div>
         </div>
     </div>
-
     <div class="container">
         <div class="panel">
             <div class="panel-header">CAM_TITLE</div>
             <div class="panel-content">
-                <img id="cameraImg" class="camera-img" src="/camera" alt="Live Camera Feed">
+                <img id="cameraImg" class="camera-img" alt="Live Camera Feed">
             </div>
         </div>
         <div class="panel">
@@ -302,8 +282,9 @@ def index():
             </div>
         </div>
     </div>
-
     <script>
+        const clientId = Math.random().toString(36).substring(2, 15);
+
         Chart.defaults.color = '#94a3b8';
         function createChart(ctxId, titleText, lineColor, showXAxis) {
             let ctx = document.getElementById(ctxId).getContext("2d");
@@ -332,7 +313,7 @@ def index():
         let chartAZ = createChart("chartAZ", "AZ", "#38bdf8", true);
 
         function updateADXL() {
-            fetch("/data").then(r => r.json()).then(d => {
+            fetch(`/data?client_id=${clientId}`).then(r => r.json()).then(d => {
                 chartVector.data.labels = d.t; chartVector.data.datasets[0].data = d.vector; chartVector.update();
                 chartAX.data.labels = d.t; chartAX.data.datasets[0].data = d.ax; chartAX.update();
                 chartAY.data.labels = d.t; chartAY.data.datasets[0].data = d.ay; chartAY.update();
@@ -348,7 +329,7 @@ def index():
                 let v = parseInt(val); if (isNaN(v)) return;
                 v = Math.max(minVal, Math.min(maxVal, v));
                 if (source === 'slider') { num.value = v; } else { slider.value = v; num.value = v; }
-                fetch(`${apiEndpoint}?val=${v}`).catch(e => console.log(e));
+                fetch(`${apiEndpoint}?client_id=${clientId}&val=${v}`).catch(e => console.log(e));
                 if (callback) callback(v);
             }
             slider.addEventListener('input', () => apply(slider.value, 'slider'));
@@ -364,9 +345,9 @@ def index():
         setupControl('ptsSlider', 'ptsNum', MIN_DISP_PTS, MAX_DISP_PTS, DEFAULT_DISP_PTS, '/set_display', null);
 
         const camImg = document.getElementById("cameraImg");
+        camImg.src = `/camera?client_id=${clientId}`;
         camImg.onerror = function() {
-            console.warn("Camera disconnected. Reconnecting...");
-            setTimeout(() => { camImg.src = "/camera?t=" + new Date().getTime(); }, 2000);
+            setTimeout(() => { camImg.src = `/camera?client_id=${clientId}&t=` + new Date().getTime(); }, 2000);
         };
     </script>
 </body>
@@ -382,41 +363,111 @@ def index():
     return html
 
 # --------------------------------------------------
-# ADXL API
+# ADXL API (即時動態平均化 + 穩定的錨定切塊)
 # --------------------------------------------------
 @app.route("/data")
 def data():
-    return jsonify({
-        "t": list(t_buf)[-global_display_points:],
-        "ax": list(ax_buf)[-global_display_points:],
-        "ay": list(ay_buf)[-global_display_points:],
-        "az": list(az_buf)[-global_display_points:],
-        "vector": list(vector_buf)[-global_display_points:]
-    })
+    client_id = request.args.get('client_id', request.remote_addr)
+    
+    with clients_lock:
+        if client_id in clients_info:
+            avg_n = clients_info[client_id]["avg_n"]
+            pts = clients_info[client_id]["display_pts"]
+        else:
+            avg_n = DEFAULT_AVERAGE_N
+            pts = DEFAULT_DISPLAY_POINTS
+
+    # 從單一 data_buf 進行快照複製，保證資料絕對對齊
+    snapshot = list(data_buf)
+    if not snapshot:
+        return jsonify({"t": [], "ax": [], "ay": [], "az": [], "vector": []})
+
+    # 【修正 1】：利用 global_packet_count 固定平均邊界 (Phase Anchor)
+    # 這樣每次請求擷取時，平均的基礎組合(例如 1,2,3 / 4,5,6) 絕對不會偏移，解決 Jitter 抖動
+    first_count = snapshot[0][0]
+    offset = (avg_n - (first_count % avg_n)) % avg_n
+    
+    available_len = len(snapshot) - offset
+    valid_len = available_len - (available_len % avg_n) # 捨棄尾部尚未組成完整 avg_n 區塊的資料
+    
+    needed_len = pts * avg_n
+    
+    start_idx = offset
+    if valid_len > needed_len:
+        start_idx = offset + valid_len - needed_len
+        
+    final_slice = snapshot[start_idx : start_idx + min(valid_len, needed_len)]
+    
+    if not final_slice:
+        return jsonify({"t": [], "ax": [], "ay": [], "az": [], "vector": []})
+
+    # 拆解 Tuple
+    t_arr = [row[1] for row in final_slice]
+    ax_arr = np.array([row[2] for row in final_slice])
+    ay_arr = np.array([row[3] for row in final_slice])
+    az_arr = np.array([row[4] for row in final_slice])
+
+    if avg_n <= 1:
+        # 當 Avg = 1，直接回傳原始值，且套用相同的向量計算邏輯
+        vec_arr = np.sqrt(ax_arr**2 + ay_arr**2 + az_arr**2)
+        return jsonify({
+            "t": t_arr,
+            "ax": ax_arr.tolist(),
+            "ay": ay_arr.tolist(),
+            "az": az_arr.tolist(),
+            "vector": vec_arr.tolist()
+        })
+    else:
+        n_chunks = len(final_slice) // avg_n
+        
+        # 時間戳取每個完整區塊的最後一筆代表
+        t_out = t_arr[avg_n-1::avg_n]
+        
+        # NumPy 極速矩陣平均運算
+        ax_mean = ax_arr.reshape(n_chunks, avg_n).mean(axis=1)
+        ay_mean = ay_arr.reshape(n_chunks, avg_n).mean(axis=1)
+        az_mean = az_arr.reshape(n_chunks, avg_n).mean(axis=1)
+        
+        # 【修正 3】：Vector 改為「平均後的數值再計算向量」，與舊版完全一致
+        vec_mean = np.sqrt(ax_mean**2 + ay_mean**2 + az_mean**2)
+
+        return jsonify({
+            "t": t_out,
+            "ax": ax_mean.tolist(),
+            "ay": ay_mean.tolist(),
+            "az": az_mean.tolist(),
+            "vector": vec_mean.tolist()
+        })
 
 # --------------------------------------------------
 # MJPEG Camera Stream
 # --------------------------------------------------
 @app.route("/camera")
 def camera():
+    client_id = request.args.get('client_id', request.remote_addr)
+    
     def generate():
         last_send_time = 0
         try:
             while True:
+                with clients_lock:
+                    interval_sec = clients_info.get(client_id, {}).get("interval_sec", DEFAULT_UPDATE_INTERVAL_MS / 1000.0)
+                
                 current_time = time.time()
                 time_since_last = current_time - last_send_time
-                if time_since_last >= global_interval_sec:
+                if time_since_last >= interval_sec:
                     if latest_frame is not None:
                         ret, jpeg = cv2.imencode(".jpg", latest_frame)
                         if ret:
                             yield (b"--frame\r\n" b"Content-Type:image/jpeg\r\n\r\n" + jpeg.tobytes() + b"\r\n")
                     last_send_time = time.time()
                     continue
-                sleep_time = global_interval_sec - (time.time() - last_send_time)
+                
+                sleep_time = interval_sec - (time.time() - last_send_time)
                 if sleep_time > 0:
                     time.sleep(min(sleep_time, 0.05))
         except GeneratorExit:
-            pass # 這裡留空，斷線紀錄統一交給 @app.teardown_request 處理
+            pass 
         except Exception:
             pass
 
@@ -428,7 +479,6 @@ def camera():
 if __name__ == "__main__":
     threading.Thread(target=adxl_receiver, daemon=True).start()
     threading.Thread(target=camera_receiver, daemon=True).start()
-    
     # 啟動「客戶端監控」背景執行緒
     threading.Thread(target=client_monitor_thread, daemon=True).start()
 
