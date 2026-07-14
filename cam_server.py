@@ -24,9 +24,9 @@ MAX_UPDATE_INTERVAL_MS = 60000
 # 2. 每 N 筆做一次平均
 DEFAULT_AVERAGE_N = 5
 MIN_AVERAGE_N = 1
-MAX_AVERAGE_N = 10000
+MAX_AVERAGE_N = 5000
 
-# 3. 網頁顯示總筆數 (最大值調整至 30000)
+# 3. 網頁顯示總筆數
 DEFAULT_DISPLAY_POINTS = 1000
 MIN_DISPLAY_POINTS = 100
 MAX_DISPLAY_POINTS = 30000
@@ -423,20 +423,40 @@ def data():
         # 時間戳取每個完整區塊的最後一筆代表
         t_out = t_arr[avg_n-1::avg_n]
         
-        # NumPy 極速矩陣平均運算
-        ax_mean = ax_arr.reshape(n_chunks, avg_n).mean(axis=1)
-        ay_mean = ay_arr.reshape(n_chunks, avg_n).mean(axis=1)
-        az_mean = az_arr.reshape(n_chunks, avg_n).mean(axis=1)
+        # # NumPy 極速矩陣平均運算
+        # ax_mean = ax_arr.reshape(n_chunks, avg_n).mean(axis=1)
+        # ay_mean = ay_arr.reshape(n_chunks, avg_n).mean(axis=1)
+        # az_mean = az_arr.reshape(n_chunks, avg_n).mean(axis=1)
         
-        # 【修正 3】：Vector 改為「平均後的數值再計算向量」，與舊版完全一致
-        vec_mean = np.sqrt(ax_mean**2 + ay_mean**2 + az_mean**2)
+        # # 【修正 3】：Vector 改為「平均後的數值再計算向量」，與舊版完全一致
+        # vec_mean = np.sqrt(ax_mean**2 + ay_mean**2 + az_mean**2)
+
+        # 1. 先將一維陣列切塊為二維矩陣 (n_chunks 列, avg_n 行)
+        ax_chunked = ax_arr.reshape(n_chunks, avg_n)
+        ay_chunked = ay_arr.reshape(n_chunks, avg_n)
+        az_chunked = az_arr.reshape(n_chunks, avg_n)
+
+        # 2. 找出每個區塊內「絕對值最大」的索引位置 (argmax)
+        idx_x = np.abs(ax_chunked).argmax(axis=1)
+        idx_y = np.abs(ay_chunked).argmax(axis=1)
+        idx_z = np.abs(az_chunked).argmax(axis=1)
+
+        # 3. 利用索引，把帶有「原始正負號」的極大值抓出來
+        # np.arange(n_chunks) 會產生對應每一列的陣列 [0, 1, 2...]
+        rows = np.arange(n_chunks)
+        ax_out = ax_chunked[rows, idx_x]
+        ay_out = ay_chunked[rows, idx_y]
+        az_out = az_chunked[rows, idx_z]
+        
+        # 4. Vector 向量本身沒有負數，直接利用這組保留了突發極值的數據求合力
+        vec_out = np.sqrt(ax_out**2 + ay_out**2 + az_out**2)
 
         return jsonify({
             "t": t_out,
-            "ax": ax_mean.tolist(),
-            "ay": ay_mean.tolist(),
-            "az": az_mean.tolist(),
-            "vector": vec_mean.tolist()
+            "ax": ax_out.tolist(),
+            "ay": ay_out.tolist(),
+            "az": az_out.tolist(),
+            "vector": vec_out.tolist()
         })
 
 # --------------------------------------------------
