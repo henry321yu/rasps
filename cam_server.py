@@ -17,19 +17,22 @@ ADXL_TITLE = "Real-time Accelerometer"
 # 初始預設設定與控制範圍
 # ==================================================
 # 1. 網頁圖表與攝影機更新頻率 (毫秒)
-DEFAULT_UPDATE_INTERVAL_MS = 1000
-MIN_UPDATE_INTERVAL_MS = 10
-MAX_UPDATE_INTERVAL_MS = 60000
+DEFAULT_UPDATE_INTERVAL_MS = 500
+MIN_UPDATE_INTERVAL_MS = 100
+SLIDER_MAX_UPDATE_INTERVAL_MS = 5000   # 【新增】滑條的最大極限
+MAX_UPDATE_INTERVAL_MS = 10000         # 數字輸入框與後端的絕對最大極限
 
 # 2. 每 N 筆做一次平均
 DEFAULT_AVERAGE_N = 5
 MIN_AVERAGE_N = 1
-MAX_AVERAGE_N = 5000
+SLIDER_MAX_AVERAGE_N = 500             # 【新增】滑條的最大極限
+MAX_AVERAGE_N = 60000                  # 數字輸入框與後端的絕對最大極限
 
 # 3. 網頁顯示總筆數
 DEFAULT_DISPLAY_POINTS = 1000
 MIN_DISPLAY_POINTS = 100
-MAX_DISPLAY_POINTS = 30000
+SLIDER_MAX_DISPLAY_POINTS = 6000       # 【新增】滑條的最大極限
+MAX_DISPLAY_POINTS = 300000            # 數字輸入框與後端的絕對最大極限
 
 # ==================================================
 # UDP 設定與 Data Buffers
@@ -39,7 +42,6 @@ IMAGE_PORT = 2885
 
 MAX_BUFFER_LEN = 300000 
 
-# 【修正 2】：將 5 個獨立的 deque 合併為 1 個，解決執行緒讀寫造成的長度錯位
 data_buf = deque(maxlen=MAX_BUFFER_LEN)
 # 全域封包計數器，用來對齊平均運算的區塊邊界
 global_packet_count = 0
@@ -66,7 +68,6 @@ def adxl_receiver():
                 current_time = datetime.now().strftime('%H:%M:%S.%f')[:-4]
                 
                 global_packet_count += 1
-                # 將計數器、時間、三軸數據打包成 tuple 一次性寫入，保證原子性(Atomic)對齊
                 data_buf.append((global_packet_count, current_time, ax, ay, az))
         except Exception:
             pass
@@ -248,19 +249,20 @@ def index():
     <div class="header">
         <h1>Control Center</h1>
         <div class="controls-container">
+            <!-- 【修改重點】range 的 max 和 number 的 max 已分離 -->
             <div class="control-item">
                 <label>Rate (ms)</label>
-                <input type="range" id="rateSlider" min="MIN_INTERVAL_MS" max="MAX_INTERVAL_MS" step="50">
+                <input type="range" id="rateSlider" min="MIN_INTERVAL_MS" max="SLIDER_MAX_INTERVAL_MS" step="10">
                 <input type="number" id="rateNum" min="MIN_INTERVAL_MS" max="MAX_INTERVAL_MS" step="10">
             </div>
             <div class="control-item">
                 <label>Avg N</label>
-                <input type="range" id="avgSlider" min="MIN_AVG_N" max="MAX_AVG_N" step="1">
+                <input type="range" id="avgSlider" min="MIN_AVG_N" max="SLIDER_MAX_AVG_N" step="1">
                 <input type="number" id="avgNum" min="MIN_AVG_N" max="MAX_AVG_N" step="1">
             </div>
             <div class="control-item">
                 <label>Display Pts</label>
-                <input type="range" id="ptsSlider" min="MIN_DISP_PTS" max="MAX_DISP_PTS" step="100">
+                <input type="range" id="ptsSlider" min="MIN_DISP_PTS" max="SLIDER_MAX_DISP_PTS" step="100">
                 <input type="number" id="ptsNum" min="MIN_DISP_PTS" max="MAX_DISP_PTS" step="100">
             </div>
         </div>
@@ -323,12 +325,21 @@ def index():
 
         let updateIntervalId = null;
 
+        // JS 在做安全驗證時 (Math.min)，使用傳進來的 maxVal (也就是絕對最大值 10000)
         function setupControl(sliderId, numId, minVal, maxVal, defaultVal, apiEndpoint, callback) {
             const slider = document.getElementById(sliderId); const num = document.getElementById(numId);
             function apply(val, source) {
                 let v = parseInt(val); if (isNaN(v)) return;
                 v = Math.max(minVal, Math.min(maxVal, v));
-                if (source === 'slider') { num.value = v; } else { slider.value = v; num.value = v; }
+                
+                if (source === 'slider') { 
+                    num.value = v; 
+                } else { 
+                    // 當我們在輸入框打 3000 時，因為 slider 最大只有 2000，HTML 會自動將 slider 卡在它自己的最右側極限 (這屬於正常行為)
+                    slider.value = v; 
+                    num.value = v; 
+                }
+                
                 fetch(`${apiEndpoint}?client_id=${clientId}&val=${v}`).catch(e => console.log(e));
                 if (callback) callback(v);
             }
@@ -337,6 +348,7 @@ def index():
             apply(defaultVal, 'init');
         }
 
+        // 這裡傳入的 MAX_*_MS 是「絕對最大極限」，用來防止使用者在輸入框輸入過大的數值
         setupControl('rateSlider', 'rateNum', MIN_INTERVAL_MS, MAX_INTERVAL_MS, DEFAULT_INTERVAL_MS, '/set_interval', (newInterval) => {
             if (updateIntervalId) clearInterval(updateIntervalId);
             updateIntervalId = setInterval(updateADXL, newInterval);
@@ -354,12 +366,23 @@ def index():
 </html>
 """
     html = html.replace("CAM_TITLE", CAMERA_TITLE).replace("ADXL_TITLE", ADXL_TITLE)
+    
+    # 【修改重點】字串取代新增處理 SLIDER_MAX
     html = html.replace("DEFAULT_INTERVAL_MS", str(DEFAULT_UPDATE_INTERVAL_MS))
-    html = html.replace("MIN_INTERVAL_MS", str(MIN_UPDATE_INTERVAL_MS)).replace("MAX_INTERVAL_MS", str(MAX_UPDATE_INTERVAL_MS))
+    html = html.replace("MIN_INTERVAL_MS", str(MIN_UPDATE_INTERVAL_MS))
+    html = html.replace("SLIDER_MAX_INTERVAL_MS", str(SLIDER_MAX_UPDATE_INTERVAL_MS))
+    html = html.replace("MAX_INTERVAL_MS", str(MAX_UPDATE_INTERVAL_MS))
+    
     html = html.replace("DEFAULT_AVG_N", str(DEFAULT_AVERAGE_N))
-    html = html.replace("MIN_AVG_N", str(MIN_AVERAGE_N)).replace("MAX_AVG_N", str(MAX_AVERAGE_N))
+    html = html.replace("MIN_AVG_N", str(MIN_AVERAGE_N))
+    html = html.replace("SLIDER_MAX_AVG_N", str(SLIDER_MAX_AVERAGE_N))
+    html = html.replace("MAX_AVG_N", str(MAX_AVERAGE_N))
+    
     html = html.replace("DEFAULT_DISP_PTS", str(DEFAULT_DISPLAY_POINTS))
-    html = html.replace("MIN_DISP_PTS", str(MIN_DISPLAY_POINTS)).replace("MAX_DISP_PTS", str(MAX_DISPLAY_POINTS))
+    html = html.replace("MIN_DISP_PTS", str(MIN_DISPLAY_POINTS))
+    html = html.replace("SLIDER_MAX_DISP_PTS", str(SLIDER_MAX_DISPLAY_POINTS))
+    html = html.replace("MAX_DISP_PTS", str(MAX_DISPLAY_POINTS))
+    
     return html
 
 # --------------------------------------------------
@@ -377,18 +400,15 @@ def data():
             avg_n = DEFAULT_AVERAGE_N
             pts = DEFAULT_DISPLAY_POINTS
 
-    # 從單一 data_buf 進行快照複製，保證資料絕對對齊
     snapshot = list(data_buf)
     if not snapshot:
         return jsonify({"t": [], "ax": [], "ay": [], "az": [], "vector": []})
 
-    # 【修正 1】：利用 global_packet_count 固定平均邊界 (Phase Anchor)
-    # 這樣每次請求擷取時，平均的基礎組合(例如 1,2,3 / 4,5,6) 絕對不會偏移，解決 Jitter 抖動
     first_count = snapshot[0][0]
     offset = (avg_n - (first_count % avg_n)) % avg_n
     
     available_len = len(snapshot) - offset
-    valid_len = available_len - (available_len % avg_n) # 捨棄尾部尚未組成完整 avg_n 區塊的資料
+    valid_len = available_len - (available_len % avg_n) 
     
     needed_len = pts * avg_n
     
@@ -401,7 +421,6 @@ def data():
     if not final_slice:
         return jsonify({"t": [], "ax": [], "ay": [], "az": [], "vector": []})
 
-    # 拆解 Tuple
     t_arr = [row[1] for row in final_slice]
     ax_arr = np.array([row[2] for row in final_slice])
     ay_arr = np.array([row[3] for row in final_slice])
@@ -422,15 +441,6 @@ def data():
         
         # 時間戳取每個完整區塊的最後一筆代表
         t_out = t_arr[avg_n-1::avg_n]
-        
-        # # NumPy 極速矩陣平均運算
-        # ax_mean = ax_arr.reshape(n_chunks, avg_n).mean(axis=1)
-        # ay_mean = ay_arr.reshape(n_chunks, avg_n).mean(axis=1)
-        # az_mean = az_arr.reshape(n_chunks, avg_n).mean(axis=1)
-        
-        # # 【修正 3】：Vector 改為「平均後的數值再計算向量」，與舊版完全一致
-        # vec_mean = np.sqrt(ax_mean**2 + ay_mean**2 + az_mean**2)
-
         # 1. 先將一維陣列切塊為二維矩陣 (n_chunks 列, avg_n 行)
         ax_chunked = ax_arr.reshape(n_chunks, avg_n)
         ay_chunked = ay_arr.reshape(n_chunks, avg_n)
@@ -447,7 +457,7 @@ def data():
         ax_out = ax_chunked[rows, idx_x]
         ay_out = ay_chunked[rows, idx_y]
         az_out = az_chunked[rows, idx_z]
-        
+
         # 4. Vector 向量本身沒有負數，直接利用這組保留了突發極值的數據求合力
         vec_out = np.sqrt(ax_out**2 + ay_out**2 + az_out**2)
 
@@ -512,4 +522,4 @@ if __name__ == "__main__":
 """)
 
     from waitress import serve
-    serve(app, host="0.0.0.0", port=6969, threads=6)
+    serve(app, host="0.0.0.0", port=6969, threads=8)
