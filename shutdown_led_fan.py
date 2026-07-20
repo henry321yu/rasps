@@ -16,7 +16,7 @@ UPDATE_SEC = 5         # 每 5 秒更新一次
 
 TEMP_START = 60.0  # 啟動風扇的溫度 (°C)，低於此溫度風扇停轉
 TEMP_MAX = 100.0    # 風扇滿轉的溫度 (°C)，高於此溫度風扇 100% 運轉
-MIN_DUTY = 75.0    # 剛啟動時的基礎轉速 (%)
+MIN_DUTY = 50.0    # 剛啟動時的基礎轉速 (%)
 
 # 初始化 pigpio
 pi = pigpio.pi()
@@ -47,7 +47,8 @@ def set_pwm_percent(pct):
 # ====== 風扇控制執行緒 ======
 def fan_control_loop():
     try:
-        set_pwm_percent(MIN_DUTY)  # 冷啟先給 50%
+        set_pwm_percent(75.0)  # 冷啟先給
+        time.sleep(5)
         while True:
             t = get_cpu_temp_c()
             duty = temp_to_duty(t)
