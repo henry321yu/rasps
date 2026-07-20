@@ -11,8 +11,12 @@ LED_PIN = 16     # 提示燈
 FAN_PIN = 12     # 風扇控制
 
 # ====== 風扇 PWM 參數 ======
-FREQ_HZ = 20        # 25 kHz，減少鳴叫
+FREQ_HZ = 50       # 25 kHz，減少鳴叫
 UPDATE_SEC = 5         # 每 5 秒更新一次
+
+TEMP_START = 60.0  # 啟動風扇的溫度 (°C)，低於此溫度風扇停轉
+TEMP_MAX = 100.0    # 風扇滿轉的溫度 (°C)，高於此溫度風扇 100% 運轉
+MIN_DUTY = 75.0    # 剛啟動時的基礎轉速 (%)
 
 # 初始化 pigpio
 pi = pigpio.pi()
@@ -27,10 +31,11 @@ def get_cpu_temp_c():
     return milli / 1000.0
 
 def temp_to_duty(temp_c):
-    if temp_c < 52:
+    if temp_c < TEMP_START:
         duty = 0.0
-    elif temp_c < 70:
-        duty = 50.0 + (temp_c - 52.0) * (52.0 / 18.0)
+    elif temp_c < TEMP_MAX:
+        # 在 TEMP_START 與 TEMP_MAX 之間進行線性計算，轉速由 MIN_DUTY 平滑上升至 100%
+        duty = MIN_DUTY + (temp_c - TEMP_START) * ((100.0 - MIN_DUTY) / (TEMP_MAX - TEMP_START))
     else:
         duty = 100.0
     return max(0.0, min(100.0, duty))
@@ -42,7 +47,7 @@ def set_pwm_percent(pct):
 # ====== 風扇控制執行緒 ======
 def fan_control_loop():
     try:
-        set_pwm_percent(50.0)  # 冷啟先給 50%
+        set_pwm_percent(MIN_DUTY)  # 冷啟先給 50%
         while True:
             t = get_cpu_temp_c()
             duty = temp_to_duty(t)
@@ -88,8 +93,10 @@ try:
                 blinking = True
             elif time.time() - press_time >= 3:
                 print("長按3秒，準備關機...")
-                os.system("sudo shutdown -h now")
-                break
+                #os.system("sudo shutdown -h now")
+                #os.system("sudo halt")
+                os.system("sudo systemctl poweroff")
+                cleanup()
         else:
             press_time = None
             blinking = False
