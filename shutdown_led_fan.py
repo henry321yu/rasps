@@ -11,12 +11,14 @@ LED_PIN = 16     # 提示燈
 FAN_PIN = 12     # 風扇控制
 
 # ====== 風扇 PWM 參數 ======
-FREQ_HZ = 50       # 25 kHz，減少鳴叫
-UPDATE_SEC = 5         # 每 5 秒更新一次
+FREQ_HZ = 7       # 若風扇有高頻電流聲，建議改為 25000 (25kHz)
+UPDATE_SEC = 5     # 每 5 秒更新一次
 
-TEMP_START = 60.0  # 啟動風扇的溫度 (°C)，低於此溫度風扇停轉
-TEMP_MAX = 100.0    # 風扇滿轉的溫度 (°C)，高於此溫度風扇 100% 運轉
-MIN_DUTY = 50.0    # 剛啟動時的基礎轉速 (%)
+# ====== 溫度控制設定 ======
+TEMP_START = 65.0  # 啟動風扇的溫度 (°C)
+TEMP_STOP = 55.0   # 關閉風扇的溫度 (°C)
+TEMP_MAX = 100.0   # 風扇滿轉的溫度 (°C)
+MIN_DUTY = 50.0    # 剛啟動與降溫區間維持的基礎轉速 (%)
 
 # 初始化 pigpio
 pi = pigpio.pi()
@@ -25,19 +27,36 @@ if not pi.connected:
     sys.exit(1)
 
 # ====== CPU 溫度相關函式 ======
+fan_is_running = False  # 用來記錄目前風扇是否為「運轉狀態」
+
 def get_cpu_temp_c():
     with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
         milli = int(f.read().strip())
     return milli / 1000.0
 
 def temp_to_duty(temp_c):
-    if temp_c < TEMP_START:
-        duty = 0.0
+    global fan_is_running
+    
+    # 1. 判斷是否需要切換風扇狀態
+    if temp_c >= TEMP_START:
+        fan_is_running = True
+    elif temp_c <= TEMP_STOP:
+        fan_is_running = False
+        
+    # 2. 如果風扇是停止狀態，直接回傳 0
+    if not fan_is_running:
+        return 0.0
+        
+    # 3. 如果風扇是運轉狀態，計算對應的轉速
+    if temp_c <= TEMP_START:
+        # 當溫度介於 TEMP_STOP ~ TEMP_START 之間，維持最低轉速
+        duty = MIN_DUTY
     elif temp_c < TEMP_MAX:
-        # 在 TEMP_START 與 TEMP_MAX 之間進行線性計算，轉速由 MIN_DUTY 平滑上升至 100%
+        # 當溫度大於 TEMP_START ，開始線性加速
         duty = MIN_DUTY + (temp_c - TEMP_START) * ((100.0 - MIN_DUTY) / (TEMP_MAX - TEMP_START))
     else:
         duty = 100.0
+        
     return max(0.0, min(100.0, duty))
 
 def set_pwm_percent(pct):
@@ -47,13 +66,16 @@ def set_pwm_percent(pct):
 # ====== 風扇控制執行緒 ======
 def fan_control_loop():
     try:
-        set_pwm_percent(75.0)  # 冷啟先給
-        time.sleep(5)
+        set_pwm_percent(75.0)  # 冷啟動先給 75% 確保馬達有足夠推力啟動
+        time.sleep(7)          # 維持 5 秒
         while True:
             t = get_cpu_temp_c()
             duty = temp_to_duty(t)
             set_pwm_percent(duty)
-            print(f"CPU 溫度: {t:.1f} °C | 風扇轉速: {duty:.1f} %")   # 在終端機輸出目前溫度與轉速
+            
+            # 在終端機輸出目前溫度、轉速與運轉狀態
+            status = "運轉中" if fan_is_running else "已停止"
+            print(f"CPU 溫度: {t:.1f} °C | 風扇轉速: {duty:.1f} % [{status}]")   
             time.sleep(UPDATE_SEC)
     except Exception as e:
         print("風扇錯誤：", e)
@@ -94,8 +116,6 @@ try:
                 blinking = True
             elif time.time() - press_time >= 3:
                 print("長按3秒，準備關機...")
-                #os.system("sudo shutdown -h now")
-                #os.system("sudo halt")
                 os.system("sudo systemctl poweroff")
                 cleanup()
         else:
