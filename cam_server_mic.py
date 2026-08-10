@@ -365,7 +365,7 @@ def index():
         let chartAY = createChart("chartAY", "AY", "#4ade80", false);
         let chartAZ = createChart("chartAZ", "AZ", "#38bdf8", true);
         
-        const AUDIO_CHART_PTS = 150; 
+        const AUDIO_CHART_PTS = 300; 
         let chartAudio = createChart("chartAudio", "即時音訊強度 (dB)", "#a855f7", true);
         let audioDbData = new Array(AUDIO_CHART_PTS).fill(-40); // 預設底線拉低
         chartAudio.data.labels = Array.from({length: AUDIO_CHART_PTS}, (_, i) => i);
@@ -564,15 +564,15 @@ def index():
                     let db = rms > 0 ? 20 * Math.log10(rms) : -100;
                     
                     // --- 新增：處理麥克風小斷訊造成的 Y 軸拉扯 ---
-                    // 若數值低於 -95dB (代表斷訊或極度異常的安靜)，直接沿用前一筆正常數值
-                    if (db <= -95 && audioDbData.length > 0) {
+                    // 若數值低於 -55dB (代表斷訊或極度異常的安靜)，直接沿用前一筆正常數值
+                    if (db <= -55 && audioDbData.length > 0) {
                         db = audioDbData[audioDbData.length - 1];
                     }
 
                     audioDbData.shift();     
                     audioDbData.push(db);    
                     chartAudio.update();
-                }, 40);
+                }, 20);
 
             } else {
                 chartWrapper.style.display = "none";
