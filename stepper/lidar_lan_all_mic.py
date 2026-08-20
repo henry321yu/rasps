@@ -14,25 +14,25 @@ import pyaudio  # 用於麥克風收音
 # pip3 install smbus2
 # python3 -m pip install flask numpy waitress --break-system-packages
 
-# ========= MPU6050 設定 =========
-MPU6050_ADDR = 0x68
+# ========= MPU6050 設定 (雙模組) =========
+MPU6050_ADDR_1 = 0x68  # AD0 接 GND
+MPU6050_ADDR_2 = 0x69  # AD0 接 3.3V
 
 # MPU6050 Registers
 PWR_MGMT_1   = 0x6B
-ACCEL_CONFIG = 0x1C
 ACCEL_XOUT_H = 0x3B
-TEMP_OUT_H   = 0x41
 
 bus = smbus2.SMBus(1)
 
 def setup_mpu6050():
-    # 喚醒 MPU6050 (寫入 0 至電源管理暫存器)
-    bus.write_byte_data(MPU6050_ADDR, PWR_MGMT_1, 0x00)
+    # 喚醒兩顆 MPU6050 (寫入 0 至電源管理暫存器)
+    bus.write_byte_data(MPU6050_ADDR_1, PWR_MGMT_1, 0x00)
+    bus.write_byte_data(MPU6050_ADDR_2, PWR_MGMT_1, 0x00)
     time.sleep(0.1)
 
-def read_mpu6050():
-    # 一次讀取 8 個位元組: 加速度 3 軸 (6 bytes) + 溫度 (2 bytes)
-    data = bus.read_i2c_block_data(MPU6050_ADDR, ACCEL_XOUT_H, 8)
+def read_mpu6050_single(addr):
+    # 一次讀取 6 個位元組: 加速度 3 軸 (6 bytes)，略過溫度
+    data = bus.read_i2c_block_data(addr, ACCEL_XOUT_H, 6)
     
     def convert(high, low):
         val = (high << 8) | low
@@ -43,9 +43,7 @@ def read_mpu6050():
     ay = convert(data[2], data[3]) / 16384.0
     az = convert(data[4], data[5]) / 16384.0
     
-    temp_raw = convert(data[6], data[7])
-    temp = (temp_raw / 340.0) + 36.53
-    return ax, ay, az, temp
+    return ax, ay, az
 
 # ========= 網路與設備清單 =========
 REMOTE_PC_LIST = [
@@ -79,15 +77,22 @@ def ping_checker():
 
 def send_mpu6050():
     global mpu_sent
-    last_az = None
+    last_az1 = None
     PREFIX = "MPU6050,"
     while True:
         try:
-            ax, ay, az, temp = read_mpu6050()
-            if az == last_az:
+            # 分別讀取兩顆感測器的資料
+            ax1, ay1, az1 = read_mpu6050_single(MPU6050_ADDR_1)
+            ax2, ay2, az2 = read_mpu6050_single(MPU6050_ADDR_2)
+            
+            # 利用第一顆的 az 軸作為資料變動的簡單過濾
+            if az1 == last_az1:
                 continue
-            last_az = az
-            message = PREFIX + "%.6f,%.6f,%.6f,%.2f" % (ax, ay, az, temp)
+            last_az1 = az1
+            
+            # 將 6 個軸的資料組裝發送
+            message = PREFIX + "%.6f,%.6f,%.6f,%.6f,%.6f,%.6f" % (ax1, ay1, az1, ax2, ay2, az2)
+            
             for ip, _ in REMOTE_PC_LIST:
                 if online_status[ip]:
                     sock_mpu.sendto(message.encode(), (ip, MPU_PORT))

@@ -20,7 +20,7 @@ import itertools
 SERVER_RUN_ID = str(uuid.uuid4())
 
 CAMERA_TITLE = "Real-time Camera"
-SENSOR_TITLE = "Real-time MPU6050"
+SENSOR_TITLE = "Real-time Dual MPU6050"
 
 # ==================================================
 # 初始預設設定與控制範圍
@@ -74,12 +74,14 @@ def sensor_receiver():
             message = data.decode("utf-8")
             parts = message.split(",")
 
-            if len(parts) == 5:
-                ax, ay, az = float(parts[1]), float(parts[2]), float(parts[3])
+            # 改為接收 7 個部分: "MPU6050", ax1, ay1, az1, ax2, ay2, az2
+            if len(parts) == 7:
+                ax1, ay1, az1 = float(parts[1]), float(parts[2]), float(parts[3])
+                ax2, ay2, az2 = float(parts[4]), float(parts[5]), float(parts[6])
                 current_time = datetime.now().strftime('%H:%M:%S.%f')[:-4]
                 
                 global_packet_count += 1
-                data_buf.append((global_packet_count, current_time, ax, ay, az))
+                data_buf.append((global_packet_count, current_time, ax1, ay1, az1, ax2, ay2, az2))
         except Exception:
             pass
 
@@ -331,10 +333,12 @@ def index():
         <div class="panel">
             <div class="panel-header">SENSOR_TITLE</div>
             <div class="panel-content charts-container">
-                <div class="chart-wrapper"><canvas id="chartVector"></canvas></div>
-                <div class="chart-wrapper"><canvas id="chartAX"></canvas></div>
-                <div class="chart-wrapper"><canvas id="chartAY"></canvas></div>
-                <div class="chart-wrapper"><canvas id="chartAZ"></canvas></div>
+                <div class="chart-wrapper"><canvas id="chartAX1"></canvas></div>
+                <div class="chart-wrapper"><canvas id="chartAY1"></canvas></div>
+                <div class="chart-wrapper"><canvas id="chartAZ1"></canvas></div>
+                <div class="chart-wrapper"><canvas id="chartAX2"></canvas></div>
+                <div class="chart-wrapper"><canvas id="chartAY2"></canvas></div>
+                <div class="chart-wrapper"><canvas id="chartAZ2"></canvas></div>
             </div>
         </div>
     </div>
@@ -366,10 +370,13 @@ def index():
             });
         }
 
-        let chartVector = createChart("chartVector", "Vector Magnitude", "#facc15", false);
-        let chartAX = createChart("chartAX", "AX", "#f87171", false);
-        let chartAY = createChart("chartAY", "AY", "#4ade80", false);
-        let chartAZ = createChart("chartAZ", "AZ", "#38bdf8", true);
+        // 宣告 6 個資料圖表
+        let chartAX1 = createChart("chartAX1", "Sensor 1 - AX", "#f87171", false);
+        let chartAY1 = createChart("chartAY1", "Sensor 1 - AY", "#4ade80", false);
+        let chartAZ1 = createChart("chartAZ1", "Sensor 1 - AZ", "#38bdf8", false);
+        let chartAX2 = createChart("chartAX2", "Sensor 2 - AX", "#facc15", false);
+        let chartAY2 = createChart("chartAY2", "Sensor 2 - AY", "#c084fc", false);
+        let chartAZ2 = createChart("chartAZ2", "Sensor 2 - AZ", "#fb923c", true);
         
         const AUDIO_CHART_PTS = 300; 
         let chartAudio = createChart("chartAudio", "即時音訊強度 (dB)", "#a855f7", true);
@@ -408,10 +415,13 @@ def index():
                         }, 500);
                     }
 
-                    chartVector.data.labels = d.t; chartVector.data.datasets[0].data = d.vector; chartVector.update();
-                    chartAX.data.labels = d.t; chartAX.data.datasets[0].data = d.ax; chartAX.update();
-                    chartAY.data.labels = d.t; chartAY.data.datasets[0].data = d.ay; chartAY.update();
-                    chartAZ.data.labels = d.t; chartAZ.data.datasets[0].data = d.az; chartAZ.update();
+                    chartAX1.data.labels = d.t; chartAX1.data.datasets[0].data = d.ax1; chartAX1.update();
+                    chartAY1.data.labels = d.t; chartAY1.data.datasets[0].data = d.ay1; chartAY1.update();
+                    chartAZ1.data.labels = d.t; chartAZ1.data.datasets[0].data = d.az1; chartAZ1.update();
+                    
+                    chartAX2.data.labels = d.t; chartAX2.data.datasets[0].data = d.ax2; chartAX2.update();
+                    chartAY2.data.labels = d.t; chartAY2.data.datasets[0].data = d.ay2; chartAY2.update();
+                    chartAZ2.data.labels = d.t; chartAZ2.data.datasets[0].data = d.az2; chartAZ2.update();
                 })
                 .catch(err => {
                     if (serverIsOnline) {
@@ -603,11 +613,10 @@ def index():
         const recChart = document.getElementById("recChart");
         const recAudio = document.getElementById("recAudio"); 
         
+        // 加入 6 個 Canvas 錄製對象
         const chartCanvases = [
-            document.getElementById("chartVector"),
-            document.getElementById("chartAX"),
-            document.getElementById("chartAY"),
-            document.getElementById("chartAZ")
+            document.getElementById("chartAX1"), document.getElementById("chartAY1"), document.getElementById("chartAZ1"),
+            document.getElementById("chartAX2"), document.getElementById("chartAY2"), document.getElementById("chartAZ2")
         ];
 
         let mediaRecorder;
@@ -831,7 +840,10 @@ def data():
 
     buf_len = len(data_buf)
     if buf_len == 0:
-        return jsonify({"t": [], "ax": [], "ay": [], "az": [], "vector": [], "server_id": SERVER_RUN_ID})
+        return jsonify({
+            "t": [], "ax1": [], "ay1": [], "az1": [], 
+            "ax2": [], "ay2": [], "az2": [], "server_id": SERVER_RUN_ID
+        })
 
     needed_len = pts * avg_n
     take_amount = needed_len + avg_n 
@@ -855,45 +867,48 @@ def data():
     final_slice = snapshot[start_idx : start_idx + min(valid_len, needed_len)]
 
     if not final_slice:
-        return jsonify({"t": [], "ax": [], "ay": [], "az": [], "vector": [], "server_id": SERVER_RUN_ID})
+        return jsonify({
+            "t": [], "ax1": [], "ay1": [], "az1": [], 
+            "ax2": [], "ay2": [], "az2": [], "server_id": SERVER_RUN_ID
+        })
 
     t_arr = [row[1] for row in final_slice]
-    ax_arr = np.array([row[2] for row in final_slice])
-    ay_arr = np.array([row[3] for row in final_slice])
-    az_arr = np.array([row[4] for row in final_slice])
+    # 取出 6 個軸的資料
+    ax1_arr = np.array([row[2] for row in final_slice])
+    ay1_arr = np.array([row[3] for row in final_slice])
+    az1_arr = np.array([row[4] for row in final_slice])
+    ax2_arr = np.array([row[5] for row in final_slice])
+    ay2_arr = np.array([row[6] for row in final_slice])
+    az2_arr = np.array([row[7] for row in final_slice])
 
     if avg_n <= 1:
-        vec_arr = np.sqrt(ax_arr**2 + ay_arr**2 + az_arr**2)
         return jsonify({
-            "t": t_arr, "ax": ax_arr.tolist(), "ay": ay_arr.tolist(), 
-            "az": az_arr.tolist(), "vector": vec_arr.tolist(), "server_id": SERVER_RUN_ID
+            "t": t_arr, 
+            "ax1": ax1_arr.tolist(), "ay1": ay1_arr.tolist(), "az1": az1_arr.tolist(), 
+            "ax2": ax2_arr.tolist(), "ay2": ay2_arr.tolist(), "az2": az2_arr.tolist(),
+            "server_id": SERVER_RUN_ID
         })
     else:
         n_chunks = len(final_slice) // avg_n
         t_out = t_arr[avg_n-1::avg_n]
         
-        ax_chunked = ax_arr.reshape(n_chunks, avg_n)
-        ay_chunked = ay_arr.reshape(n_chunks, avg_n)
-        az_chunked = az_arr.reshape(n_chunks, avg_n)
-
-        ax_shifted = ax_chunked + PEAK_OFFSET_VALUE
-        ay_shifted = ay_chunked + PEAK_OFFSET_VALUE
-        az_shifted = az_chunked + PEAK_OFFSET_VALUE
-
-        idx_x = np.abs(ax_shifted).argmax(axis=1)
-        idx_y = np.abs(ay_shifted).argmax(axis=1)
-        idx_z = np.abs(az_shifted).argmax(axis=1)
-
-        rows = np.arange(n_chunks)
-        ax_out = ax_shifted[rows, idx_x] - PEAK_OFFSET_VALUE
-        ay_out = ay_shifted[rows, idx_y] - PEAK_OFFSET_VALUE
-        az_out = az_shifted[rows, idx_z] - PEAK_OFFSET_VALUE
-        
-        vec_out = np.sqrt(ax_out**2 + ay_out**2 + az_out**2)
+        # 輔助函式：將指定的 array 以 avg_n 進行分群，並取出最大峰值
+        def get_peaks(arr):
+            chunked = arr.reshape(n_chunks, avg_n)
+            shifted = chunked + PEAK_OFFSET_VALUE
+            idx = np.abs(shifted).argmax(axis=1)
+            rows = np.arange(n_chunks)
+            return shifted[rows, idx] - PEAK_OFFSET_VALUE
 
         return jsonify({
-            "t": t_out, "ax": ax_out.tolist(), "ay": ay_out.tolist(), 
-            "az": az_out.tolist(), "vector": vec_out.tolist(), "server_id": SERVER_RUN_ID
+            "t": t_out, 
+            "ax1": get_peaks(ax1_arr).tolist(), 
+            "ay1": get_peaks(ay1_arr).tolist(), 
+            "az1": get_peaks(az1_arr).tolist(), 
+            "ax2": get_peaks(ax2_arr).tolist(), 
+            "ay2": get_peaks(ay2_arr).tolist(), 
+            "az2": get_peaks(az2_arr).tolist(), 
+            "server_id": SERVER_RUN_ID
         })
 
 # --------------------------------------------------
@@ -965,7 +980,7 @@ if __name__ == "__main__":
 
     print(f"""
 ======================================
- MPU6050 + Camera + Audio Web Monitor
+ Dual MPU6050 + Camera + Audio Server
  Open: http://0.0.0.0:6969
  
  Server Started! Waiting for clients...
