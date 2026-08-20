@@ -8,6 +8,12 @@ import smbus2
 from datetime import datetime
 import pyaudio  # 用於麥克風收音
 
+# install list:
+# sudo apt install -y python3-opencv python3-pyaudio
+# sudo apt install -y portaudio19-dev
+# pip3 install smbus2
+# python3 -m pip install flask numpy waitress --break-system-packages
+
 # ========= MPU6050 設定 =========
 MPU6050_ADDR = 0x68
 
