@@ -7,16 +7,17 @@ from datetime import datetime
 # 替換成你的伺服器 IP
 data_url = "http://26.107.7.251:6969/data?client_id=data_logger"
 
-# 自動生成帶有日期時間的檔名 (例如: ADXL355_260716115110.csv)
+# 自動生成帶有日期時間的檔名 (例如: Dual_MPU6050_260716115110.csv)
 time_string = datetime.now().strftime("%y%m%d%H%M%S")
-csv_filename = f"ADXL355_{time_string}.csv"
+csv_filename = f"Dual_MPU6050_{time_string}.csv"
 
 # 紀錄已經抓取過的時間戳，避免重複儲存
 seen_timestamps = set()
 
 with open(csv_filename, mode='w', newline='') as file:
     writer = csv.writer(file)
-    writer.writerow(["Time", "AX", "AY", "AZ", "Vector"])
+    # 修改為雙 MPU6050 的 6 軸標題列
+    writer.writerow(["Time", "AX1", "AY1", "AZ1", "AX2", "AY2", "AZ2"])
     
     print(f"開始記錄數據至 {csv_filename} ... (按 Ctrl+C 停止)\n")
     
@@ -41,10 +42,12 @@ with open(csv_filename, mode='w', newline='') as file:
                     if t not in seen_timestamps:
                         writer.writerow([
                             t, 
-                            data["ax"][i], 
-                            data["ay"][i], 
-                            data["az"][i], 
-                            data["vector"][i]
+                            data["ax1"][i], 
+                            data["ay1"][i], 
+                            data["az1"][i], 
+                            data["ax2"][i], 
+                            data["ay2"][i], 
+                            data["az2"][i]
                         ])
                         seen_timestamps.add(t)
                         new_rows_count += 1
