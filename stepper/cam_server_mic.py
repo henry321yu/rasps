@@ -11,6 +11,12 @@ from flask import Flask, Response, jsonify, request
 from datetime import datetime
 import itertools
 
+# install list:
+# sudo apt install -y python3-opencv python3-pyaudio
+# sudo apt install -y portaudio19-dev
+# pip3 install smbus2
+# python3 -m pip install flask numpy waitress --break-system-packages
+
 SERVER_RUN_ID = str(uuid.uuid4())
 
 CAMERA_TITLE = "Real-time Camera"
