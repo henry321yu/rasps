@@ -6,35 +6,125 @@ import platform
 import threading
 import smbus2
 from datetime import datetime
-import pyaudio  # [新增] 用於麥克風收音
+import pyaudio
 
-# ========= ADXL355 設定 =========
-TEMP2, XDATA3, YDATA3, ZDATA3 = 0x06, 0x08, 0x0B, 0x0E
-RESET, POWER_CTL, RANGE, SELF_TEST = 0x2F, 0x2D, 0x2C, 0x2E
+# ==================================================
+# MPU6050 設定
+# ==================================================
+
+MPU6050_ADDR = 0x68
+
+# MPU6050 Registers
+PWR_MGMT_1   = 0x6B
+ACCEL_CONFIG = 0x1C
+ACCEL_XOUT_H = 0x3B
+TEMP_OUT_H   = 0x41
+
 bus = smbus2.SMBus(1)
-ADXL355_ADDR = 0x1D
 
-def setup_adxl355():
-    bus.write_byte_data(ADXL355_ADDR, RESET, 0x52)
+
+def setup_mpu6050():
+    print("Initializing MPU6050...")
+
+    # 喚醒 MPU6050
+    bus.write_byte_data(
+        MPU6050_ADDR,
+        PWR_MGMT_1,
+        0x00
+    )
+
     time.sleep(0.1)
-    bus.write_byte_data(ADXL355_ADDR, POWER_CTL, 0x00)
-    bus.write_byte_data(ADXL355_ADDR, RANGE, 0x01)
-    bus.write_byte_data(ADXL355_ADDR, SELF_TEST, 0x00)
+
+    # Accelerometer ±2g
+    #
+    # 00 = ±2g
+    # 08 = ±4g
+    # 10 = ±8g
+    # 18 = ±16g
+    #
+    bus.write_byte_data(
+        MPU6050_ADDR,
+        ACCEL_CONFIG,
+        0x00
+    )
+
     time.sleep(0.1)
 
-def read_adxl355():
-    data = bus.read_i2c_block_data(ADXL355_ADDR, TEMP2, 11)
-    ax = ((data[2] << 12) | (data[3] << 4) | (data[4] >> 4)) & 0xFFFFF
-    ay = ((data[5] << 12) | (data[6] << 4) | (data[7] >> 4)) & 0xFFFFF
-    az = ((data[8] << 12) | (data[9] << 4) | (data[10] >> 4)) & 0xFFFFF
-    ax = ax - 0x100000 if ax > 0x80000 else ax
-    ay = ay - 0x100000 if ay > 0x80000 else ay
-    az = az - 0x100000 if az > 0x80000 else az
-    temp_raw = (data[0] << 8) | data[1]
-    temp = ((1852 - temp_raw) / 9.05) + 27.2
-    return ax / 0x3E800, ay / 0x3E800, az / 0x3E800, temp
+    # 測試讀取
+    try:
+        ax, ay, az, temp = read_mpu6050()
 
-# ========= 網路與設備清單 =========
+        print("MPU6050 initialized")
+        print(
+            "AX = %.6f g | AY = %.6f g | AZ = %.6f g | TEMP = %.2f C"
+            % (ax, ay, az, temp)
+        )
+
+    except Exception as e:
+        print("MPU6050 initialization failed:", e)
+
+
+def read_mpu6050():
+
+    # 讀取：
+    #
+    # 0x3B AX High
+    # 0x3C AX Low
+    # 0x3D AY High
+    # 0x3E AY Low
+    # 0x3F AZ High
+    # 0x40 AZ Low
+    # 0x41 Temperature High
+    # 0x42 Temperature Low
+    #
+    data = bus.read_i2c_block_data(
+        MPU6050_ADDR,
+        ACCEL_XOUT_H,
+        8
+    )
+
+    def to_int16(high, low):
+
+        value = (high << 8) | low
+
+        if value & 0x8000:
+            value -= 65536
+
+        return value
+
+    # Raw acceleration
+    raw_ax = to_int16(data[0], data[1])
+    raw_ay = to_int16(data[2], data[3])
+    raw_az = to_int16(data[4], data[5])
+
+    # ±2g
+    #
+    # MPU6050 sensitivity:
+    # 16384 LSB / g
+    #
+    ax = raw_ax / 16384.0
+    ay = raw_ay / 16384.0
+    az = raw_az / 16384.0
+
+    # Temperature
+    raw_temp = to_int16(
+        data[6],
+        data[7]
+    )
+
+    # MPU6050 temperature formula
+    #
+    # Temperature = raw / 340 + 36.53
+    #
+    temp = raw_temp / 340.0 + 36.53
+
+    return ax, ay, az, temp
+
+
+# ==================================================
+# 網路與設備清單
+# ==================================================
+
 REMOTE_PC_LIST = [
     ('127.0.0.1', 0), # server (請依據需求改成你的 Server IP)
 ]
@@ -64,21 +154,68 @@ def ping_checker():
             online_status[ip] = ping(ip)
         time.sleep(5)
 
-def send_adxl355():
+
+# ==================================================
+# MPU6050 發送
+# ==================================================
+
+def send_mpu6050():
+
     global adxl_sent
     last_az = None
-    PREFIX = "ADXL355,"
+
+    PREFIX = "MPU6050,"
+
     while True:
-        ax, ay, az, temp = read_adxl355()
-        if az == last_az:
-            continue
-        last_az = az
-        message = PREFIX + "%.6f,%.6f,%.6f,%.2f" % (ax, ay, az, temp)
-        for ip, _ in REMOTE_PC_LIST:
-            if online_status[ip]:
-                sock_adxl.sendto(message.encode(), (ip, ADXL_PORT))
-                adxl_sent += 1
-        time.sleep(0.0005)
+
+        try:
+
+            ax, ay, az, temp = read_mpu6050()
+
+            # 避免完全相同資料重複傳送
+            if az == last_az:
+                continue
+
+            last_az = az
+
+            message = (
+                PREFIX
+                + "%.6f,%.6f,%.6f,%.2f"
+                % (
+                    ax,
+                    ay,
+                    az,
+                    temp
+                )
+            )
+
+            for ip, _ in REMOTE_PC_LIST:
+
+                if online_status[ip]:
+
+                    sock_adxl.sendto(
+                        message.encode(),
+                        (ip, ADXL_PORT)
+                    )
+
+                    adxl_sent += 1
+
+            # 保留原本頻率設定
+            time.sleep(0.0005)
+
+        except Exception as e:
+
+            print(
+                "MPU6050 read error:",
+                e
+            )
+
+            time.sleep(0.1)
+
+
+# ==================================================
+# Camera
+# ==================================================
 
 def send_camera():
     global img_sent, pixel_sent, avg20, avg30, avg40, avg50
@@ -95,8 +232,11 @@ def send_camera():
             cap.release()
             cap = None
             continue
-            
-        ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-4]
+
+        ts = datetime.now().strftime(
+            '%Y-%m-%d %H:%M:%S.%f'
+        )[:-4]
+
         overlay = frame.copy()
         cv2.rectangle(overlay, (5, 3), (225, 25), (0, 0, 0), -1)
         cv2.addWeighted(overlay, 0.4, frame, 0.6, 0, frame)
@@ -114,6 +254,7 @@ def send_camera():
                     if online_status[ip]:
                         sock_img.sendto(jpeg.tobytes(), (ip, IMAGE_PORT))
                         img_sent += 1
+
         time.sleep(interval)
 
 # [修改] 具備熱插拔(斷線自動重連)功能的麥克風收音發送函數
