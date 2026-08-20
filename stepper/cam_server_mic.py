@@ -78,7 +78,7 @@ def sensor_receiver():
             if len(parts) == 7:
                 ax1, ay1, az1 = float(parts[1]), float(parts[2]), float(parts[3])
                 ax2, ay2, az2 = float(parts[4]), float(parts[5]), float(parts[6])
-                current_time = datetime.now().strftime('%H:%M:%S.%f')[:-4]
+                current_time = datetime.now().strftime('%H:%M:%S.%f')[:-3]
                 
                 global_packet_count += 1
                 data_buf.append((global_packet_count, current_time, ax1, ay1, az1, ax2, ay2, az2))

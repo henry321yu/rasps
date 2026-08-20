@@ -117,7 +117,7 @@ def send_camera():
             cap = None
             continue
             
-        ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-4]
+        ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
         overlay = frame.copy()
         cv2.rectangle(overlay, (5, 3), (225, 25), (0, 0, 0), -1)
         cv2.addWeighted(overlay, 0.4, frame, 0.6, 0, frame)
