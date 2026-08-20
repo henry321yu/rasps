@@ -313,7 +313,7 @@ if __name__ == "__main__":
     time.sleep(10)
     setup_adxl355()
     threading.Thread(target=ping_checker, daemon=True).start()
-    threading.Thread(target=send_adxl355, daemon=True).start()
+    threading.Thread(target=send_mpu6050, daemon=True).start()
     threading.Thread(target=send_camera, daemon=True).start()
     threading.Thread(target=send_audio, daemon=True).start() # [新增] 啟動音訊執行緒
     threading.Thread(target=print_status, daemon=True).start()
