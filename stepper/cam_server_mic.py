@@ -14,7 +14,7 @@ import itertools
 SERVER_RUN_ID = str(uuid.uuid4())
 
 CAMERA_TITLE = "Real-time Camera"
-ADXL_TITLE = "Real-time Accelerometer"
+SENSOR_TITLE = "Real-time MPU6050"
 
 # ==================================================
 # 初始預設設定與控制範圍
@@ -39,7 +39,7 @@ PEAK_OFFSET_VALUE = 1.0
 # ==================================================
 # UDP 設定與 Data Buffers
 # ==================================================
-ADXL_PORT = 2870
+MPU_PORT = 2870
 IMAGE_PORT = 2885
 AUDIO_PORT = 2890
 
@@ -56,11 +56,11 @@ audio_lock = threading.Lock()
 # ==================================================
 # UDP Receivers
 # ==================================================
-def adxl_receiver():
+def sensor_receiver():
     global global_packet_count
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind(("0.0.0.0", ADXL_PORT))
-    print(f"Listening ADXL355 UDP {ADXL_PORT}")
+    sock.bind(("0.0.0.0", MPU_PORT))
+    print(f"Listening MPU6050 UDP {MPU_PORT}")
 
     while True:
         try:
@@ -323,7 +323,7 @@ def index():
             </div>
         </div>
         <div class="panel">
-            <div class="panel-header">ADXL_TITLE</div>
+            <div class="panel-header">SENSOR_TITLE</div>
             <div class="panel-content charts-container">
                 <div class="chart-wrapper"><canvas id="chartVector"></canvas></div>
                 <div class="chart-wrapper"><canvas id="chartAX"></canvas></div>
@@ -370,14 +370,12 @@ def index():
         let audioDbData = new Array(AUDIO_CHART_PTS).fill(-40); // 預設底線拉低
         chartAudio.data.labels = Array.from({length: AUDIO_CHART_PTS}, (_, i) => i);
         chartAudio.data.datasets[0].data = audioDbData;
-        // [已刪除]: chartAudio.options.scales.y.min = -80;
-        // [已刪除]: chartAudio.options.scales.y.max = 0;
         chartAudio.update();
 
         let serverIsOnline = true; 
         let currentServerId = null; 
 
-        function updateADXL() {
+        function updateSensor() {
             fetch(`/data?client_id=${clientId}`)
                 .then(r => {
                     if (!r.ok) throw new Error("Server response not ok");
@@ -434,7 +432,7 @@ def index():
 
         setupControl('rateSlider', 'rateNum', MIN_INTERVAL_MS, MAX_INTERVAL_MS, DEFAULT_INTERVAL_MS, '/set_interval', (newInterval) => {
             if (updateIntervalId) clearInterval(updateIntervalId);
-            updateIntervalId = setInterval(updateADXL, newInterval);
+            updateIntervalId = setInterval(updateSensor, newInterval);
         });
         setupControl('avgSlider', 'avgNum', MIN_AVG_N, MAX_AVG_N, DEFAULT_AVG_N, '/set_average', null);
         setupControl('ptsSlider', 'ptsNum', MIN_DISP_PTS, MAX_DISP_PTS, DEFAULT_DISP_PTS, '/set_display', null);
@@ -560,11 +558,8 @@ def index():
                         sumSquares += dataArray[i] * dataArray[i];
                     }
                     let rms = Math.sqrt(sumSquares / dataArray.length);
-                    // [修改] 解除硬性截斷，讓分貝能隨真實環境噪音自然浮動
                     let db = rms > 0 ? 20 * Math.log10(rms) : -100;
                     
-                    // --- 新增：處理麥克風小斷訊造成的 Y 軸拉扯 ---
-                    // 若數值低於 -55dB (代表斷訊或極度異常的安靜)，直接沿用前一筆正常數值
                     if (db <= -55 && audioDbData.length > 0) {
                         db = audioDbData[audioDbData.length - 1];
                     }
@@ -799,7 +794,7 @@ def index():
 </body>
 </html>
 """
-    html = html.replace("CAM_TITLE", CAMERA_TITLE).replace("ADXL_TITLE", ADXL_TITLE)
+    html = html.replace("CAM_TITLE", CAMERA_TITLE).replace("SENSOR_TITLE", SENSOR_TITLE)
     html = html.replace("DEFAULT_INTERVAL_MS", str(DEFAULT_UPDATE_INTERVAL_MS))
     html = html.replace("MIN_INTERVAL_MS", str(MIN_UPDATE_INTERVAL_MS))
     html = html.replace("SLIDER_MAX_INTERVAL_MS", str(SLIDER_MAX_UPDATE_INTERVAL_MS))
@@ -815,7 +810,7 @@ def index():
     return html
 
 # --------------------------------------------------
-# ADXL API 
+# MPU API 
 # --------------------------------------------------
 @app.route("/data")
 def data():
@@ -957,14 +952,14 @@ def audio_raw():
 # Main
 # ==================================================
 if __name__ == "__main__":
-    threading.Thread(target=adxl_receiver, daemon=True).start()
+    threading.Thread(target=sensor_receiver, daemon=True).start()
     threading.Thread(target=camera_receiver, daemon=True).start()
     threading.Thread(target=audio_receiver, daemon=True).start() 
     threading.Thread(target=client_monitor_thread, daemon=True).start()
 
     print(f"""
 ======================================
- ADXL355 + Camera + Audio Web Monitor
+ MPU6050 + Camera + Audio Web Monitor
  Open: http://0.0.0.0:6969
  
  Server Started! Waiting for clients...
