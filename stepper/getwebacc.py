@@ -9,7 +9,7 @@ SERVER_IP = "10.241.136.93"
 CLIENT_ID = "data_logger"
 DATA_URL = f"http://{SERVER_IP}:6969/data?client_id={CLIENT_ID}"
 
-TARGET_HZ = 100      # 目標紀錄頻率 (100Hz)
+TARGET_HZ = 150      # 目標紀錄頻率 (100Hz)
 INTERVAL = 1000 / TARGET_HZ
 TARGET_INTERVAL = timedelta(milliseconds=INTERVAL) 
 # ==========================================
@@ -34,7 +34,7 @@ with open(csv_filename, mode='w', newline='') as file:
     writer = csv.writer(file)
     writer.writerow(["time", "ax1", "ay1", "az1", "ax2", "ay2", "az2"])
     
-    print(f"開始記錄數據至 {csv_filename} ... (目標頻率: 100Hz, 按 Ctrl+C 停止)\n")
+    print(f"開始記錄數據至 {csv_filename} ... (目標頻率: {TARGET_HZ}Hz, 按 Ctrl+C 停止)\n")
     
     try:
         while True:
