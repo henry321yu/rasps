@@ -119,16 +119,16 @@ def send_camera():
             
         ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
         overlay = frame.copy()
-        cv2.rectangle(overlay, (5, 3), (225, 25), (0, 0, 0), -1)
+        cv2.rectangle(overlay, (5, 3), (234, 25), (0, 0, 0), -1) # 黑塊長度 225給.00  232給.000
         cv2.addWeighted(overlay, 0.4, frame, 0.6, 0, frame)
         cv2.putText(frame, ts, (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
         
         resized = cv2.resize(frame, (0, 0), fx=1, fy=1)
-        success, jpeg = cv2.imencode('.jpg', resized, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+        success, jpeg = cv2.imencode('.jpg', resized, [int(cv2.IMWRITE_JPEG_QUALITY), 40]) # 調整畫質 80 good
         
         if success:
             if len(jpeg) >= 60000:
-                success, jpeg = cv2.imencode('.jpg', resized, [int(cv2.IMWRITE_JPEG_QUALITY), 60])
+                success, jpeg = cv2.imencode('.jpg', resized, [int(cv2.IMWRITE_JPEG_QUALITY), 20]) # 調整畫質 60 good
             
             if success and len(jpeg) < 60000:
                 for ip, _ in REMOTE_PC_LIST:
