@@ -32,7 +32,7 @@ last_saved_time = None  # 紀錄上一筆寫入 CSV 的確切時間
 
 with open(csv_filename, mode='w', newline='') as file:
     writer = csv.writer(file)
-    writer.writerow(["Time", "AX1", "AY1", "AZ1", "AX2", "AY2", "AZ2"])
+    writer.writerow(["time", "ax1", "ay1", "az1", "ax2", "ay2", "az2"])
     
     print(f"開始記錄數據至 {csv_filename} ... (目標頻率: 100Hz, 按 Ctrl+C 停止)\n")
     
