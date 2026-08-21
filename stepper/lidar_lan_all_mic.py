@@ -54,16 +54,20 @@ MPU_PORT = 2870
 IMAGE_PORT = 2885
 PIXEL_PORT = 2886
 AUDIO_PORT = 2890
+CONTROL_PORT = 2895 # [新增] 接收伺服器控制指令 PORT
 
 sock_mpu = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock_img = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock_pixel = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock_audio = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock_control = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # [新增] 控制接收
+sock_control.bind(("0.0.0.0", CONTROL_PORT))
 
 # ========= 狀態變數 =========
 online_status = {ip: True for ip, _ in REMOTE_PC_LIST}
 avg20 = avg30 = avg40 = avg50 = 100
 mpu_sent = img_sent = pixel_sent = audio_sent = 0
+image_quality = 40 # [新增] 預設影像畫質
 
 def ping(ip):
     param = "-n" if platform.system().lower() == "windows" else "-c"
@@ -74,6 +78,19 @@ def ping_checker():
         for ip, _ in REMOTE_PC_LIST:
             online_status[ip] = ping(ip)
         time.sleep(5)
+
+# [新增] 監聽來自伺服器的畫質變更指令
+def control_receiver():
+    global image_quality
+    while True:
+        try:
+            data, addr = sock_control.recvfrom(1024)
+            msg = data.decode("utf-8")
+            if msg.startswith("QUALITY:"):
+                new_q = int(msg.split(":")[1])
+                image_quality = new_q
+        except Exception as e:
+            pass
 
 def send_mpu6050():
     global mpu_sent
@@ -102,7 +119,7 @@ def send_mpu6050():
         time.sleep(0.0005)
 
 def send_camera():
-    global img_sent, pixel_sent, avg20, avg30, avg40, avg50
+    global img_sent, pixel_sent, avg20, avg30, avg40, avg50, image_quality
     cap = None
     interval = 0.05
     while True:
@@ -124,11 +141,15 @@ def send_camera():
         cv2.putText(frame, ts, (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
         
         resized = cv2.resize(frame, (0, 0), fx=1, fy=1)
-        success, jpeg = cv2.imencode('.jpg', resized, [int(cv2.IMWRITE_JPEG_QUALITY), 40]) # 調整畫質 80 good
+        
+        # [修改] 使用全域變數 image_quality
+        success, jpeg = cv2.imencode('.jpg', resized, [int(cv2.IMWRITE_JPEG_QUALITY), image_quality])
         
         if success:
             if len(jpeg) >= 60000:
-                success, jpeg = cv2.imencode('.jpg', resized, [int(cv2.IMWRITE_JPEG_QUALITY), 20]) # 調整畫質 60 good
+                # [修改] 低畫質為高畫質 - 20，並確保不小於 0
+                low_quality = max(0, image_quality - 20)
+                success, jpeg = cv2.imencode('.jpg', resized, [int(cv2.IMWRITE_JPEG_QUALITY), low_quality]) 
             
             if success and len(jpeg) < 60000:
                 for ip, _ in REMOTE_PC_LIST:
@@ -177,7 +198,7 @@ def print_status():
     while True:
         os.system('cls' if platform.system().lower() == 'windows' else 'clear')
         print(f"  avg20 = {avg20}")
-        print(f"  MPU6050: {mpu_sent} | 圖像: {img_sent} | 音訊: {audio_sent}")
+        print(f"  MPU6050: {mpu_sent} | 圖像: {img_sent} | 音訊: {audio_sent} | 當前畫質: {image_quality}")
         for ip, _ in REMOTE_PC_LIST:
             status = "Online" if online_status[ip] else "Offline"
             print(f"  {ip} : {status}")
@@ -187,6 +208,7 @@ if __name__ == "__main__":
     time.sleep(10)
     setup_mpu6050()
     threading.Thread(target=ping_checker, daemon=True).start()
+    threading.Thread(target=control_receiver, daemon=True).start() # [新增] 啟動控制接收執行緒
     threading.Thread(target=send_mpu6050, daemon=True).start()
     threading.Thread(target=send_camera, daemon=True).start()
     threading.Thread(target=send_audio, daemon=True).start()
@@ -201,4 +223,5 @@ if __name__ == "__main__":
         sock_img.close()
         sock_pixel.close()
         sock_audio.close()
+        sock_control.close()
         print("🔴 手動中斷")

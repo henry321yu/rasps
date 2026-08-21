@@ -40,6 +40,11 @@ MIN_DISPLAY_POINTS = 100
 SLIDER_MAX_DISPLAY_POINTS = 6000
 MAX_DISPLAY_POINTS = 300000
 
+DEFAULT_IMAGE_QUALITY = 70
+MIN_IMAGE_QUALITY = 20
+SLIDER_MAX_IMAGE_QUALITY = 100
+MAX_IMAGE_QUALITY = 100
+
 PEAK_OFFSET_VALUE = 1.0
 
 # ==================================================
@@ -48,6 +53,7 @@ PEAK_OFFSET_VALUE = 1.0
 MPU_PORT = 2870
 IMAGE_PORT = 2885
 AUDIO_PORT = 2890
+CONTROL_PORT = 2895  # [新增] 控制指令 PORT 回傳給 Sender
 
 MAX_BUFFER_LEN = 300000 
 
@@ -55,6 +61,7 @@ data_buf = deque(maxlen=MAX_BUFFER_LEN)
 global_packet_count = 0
 latest_frame = None
 latest_jpeg = None
+latest_sender_ip = None # [新增] 用來記錄 Sender 的 IP 以便回傳指令
 
 audio_subscribers = []
 audio_lock = threading.Lock()
@@ -86,7 +93,7 @@ def sensor_receiver():
             pass
 
 def camera_receiver():
-    global latest_jpeg
+    global latest_jpeg, latest_sender_ip
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024 * 1024)
     sock.bind(("0.0.0.0", IMAGE_PORT))
@@ -97,6 +104,7 @@ def camera_receiver():
             data, addr = sock.recvfrom(65535)
             if len(data) > 0:
                 latest_jpeg = data
+                latest_sender_ip = addr[0] # [紀錄] Sender 的 IP
         except Exception as e:
             pass
 
@@ -168,7 +176,8 @@ def track_client_connect():
                 "last_command": None,
                 "interval_sec": DEFAULT_UPDATE_INTERVAL_MS / 1000.0,
                 "avg_n": DEFAULT_AVERAGE_N,
-                "display_pts": DEFAULT_DISPLAY_POINTS
+                "display_pts": DEFAULT_DISPLAY_POINTS,
+                "quality": DEFAULT_IMAGE_QUALITY
             }
         
         clients_info[client_id]["last_seen"] = time.time()
@@ -224,6 +233,29 @@ def set_display():
         with clients_lock:
             if client_id in clients_info:
                 clients_info[client_id]["display_pts"] = val
+        return jsonify({"status": "ok", "val": val})
+    except:
+        return jsonify({"status": "error"}), 400
+
+# [新增] 設定畫質的 API
+@app.route("/set_quality")
+def set_quality():
+    client_id = request.args.get('client_id', request.remote_addr)
+    try:
+        val = int(request.args.get('val', DEFAULT_IMAGE_QUALITY))
+        val = max(MIN_IMAGE_QUALITY, min(MAX_IMAGE_QUALITY, val)) 
+        with clients_lock:
+            if client_id in clients_info:
+                clients_info[client_id]["quality"] = val
+        
+        # 透過 UDP 傳送控制指令給 Sender
+        if latest_sender_ip:
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sock.sendto(f"QUALITY:{val}".encode(), (latest_sender_ip, CONTROL_PORT))
+            except Exception as e:
+                pass
+                
         return jsonify({"status": "ok", "val": val})
     except:
         return jsonify({"status": "error"}), 400
@@ -298,6 +330,13 @@ def index():
             <div class="control-item" style="border-color: #4ade80;">
                 <label><input type="checkbox" id="audioToggle"> 🔊 監聽音訊</label>
                 <input type="range" id="audioVolume" min="0" max="1" step="0.05" value="0.8" style="width: 80px;" title="調整監聽音量">
+            </div>
+
+            <!-- [新增] 畫質控制拉桿 -->
+            <div class="control-item">
+                <label>Quality</label>
+                <input type="range" id="qtySlider" min="MIN_QUALITY" max="SLIDER_MAX_QUALITY" step="1">
+                <input type="number" id="qtyNum" min="MIN_QUALITY" max="MAX_QUALITY" step="1">
             </div>
 
             <div class="control-item">
@@ -445,6 +484,9 @@ def index():
             num.addEventListener('change', () => apply(num.value, 'num'));
             apply(defaultVal, 'init');
         }
+
+        // [新增] 綁定畫質控制拉桿
+        setupControl('qtySlider', 'qtyNum', MIN_QUALITY, MAX_QUALITY, DEFAULT_QUALITY, '/set_quality', null);
 
         setupControl('rateSlider', 'rateNum', MIN_INTERVAL_MS, MAX_INTERVAL_MS, DEFAULT_INTERVAL_MS, '/set_interval', (newInterval) => {
             if (updateIntervalId) clearInterval(updateIntervalId);
@@ -810,6 +852,13 @@ def index():
 </html>
 """
     html = html.replace("CAM_TITLE", CAMERA_TITLE).replace("SENSOR_TITLE", SENSOR_TITLE)
+    
+    # [新增] 替換畫質變數
+    html = html.replace("DEFAULT_QUALITY", str(DEFAULT_IMAGE_QUALITY))
+    html = html.replace("MIN_QUALITY", str(MIN_IMAGE_QUALITY))
+    html = html.replace("SLIDER_MAX_QUALITY", str(SLIDER_MAX_IMAGE_QUALITY))
+    html = html.replace("MAX_QUALITY", str(MAX_IMAGE_QUALITY))
+    
     html = html.replace("DEFAULT_INTERVAL_MS", str(DEFAULT_UPDATE_INTERVAL_MS))
     html = html.replace("MIN_INTERVAL_MS", str(MIN_UPDATE_INTERVAL_MS))
     html = html.replace("SLIDER_MAX_INTERVAL_MS", str(SLIDER_MAX_UPDATE_INTERVAL_MS))
