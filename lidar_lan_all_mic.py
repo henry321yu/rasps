@@ -56,7 +56,7 @@ sock_control.bind(("0.0.0.0", CONTROL_PORT))
 online_status = {ip: True for ip, _ in REMOTE_PC_LIST}
 avg20 = avg30 = avg40 = avg50 = 100
 adxl_sent = img_sent = pixel_sent = audio_sent = 0
-image_quality = 40 # [新增] 預設影像畫質
+image_quality = 70 # [新增] 預設影像畫質
 
 def ping(ip):
     param = "-n" if platform.system().lower() == "windows" else "-c"
