@@ -40,14 +40,15 @@ with open(csv_filename, mode='w', newline='') as file:
                     t = data["t"][i]
                     # 確保只寫入新的數據
                     if t not in seen_timestamps:
+                        # 透過 f-string 限制只存到小數點第 6 位
                         writer.writerow([
                             t, 
-                            data["ax1"][i], 
-                            data["ay1"][i], 
-                            data["az1"][i], 
-                            data["ax2"][i], 
-                            data["ay2"][i], 
-                            data["az2"][i]
+                            f"{float(data['ax1'][i]):.6f}", 
+                            f"{float(data['ay1'][i]):.6f}", 
+                            f"{float(data['az1'][i]):.6f}", 
+                            f"{float(data['ax2'][i]):.6f}", 
+                            f"{float(data['ay2'][i]):.6f}", 
+                            f"{float(data['az2'][i]):.6f}"
                         ])
                         seen_timestamps.add(t)
                         new_rows_count += 1
