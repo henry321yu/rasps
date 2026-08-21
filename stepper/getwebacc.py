@@ -9,7 +9,7 @@ SERVER_IP = "10.241.136.93"
 CLIENT_ID = "data_logger"
 DATA_URL = f"http://{SERVER_IP}:6969/data?client_id={CLIENT_ID}"
 
-TARGET_HZ = 150      # 目標紀錄頻率 (100Hz)
+TARGET_HZ = 100      # 目標紀錄頻率
 INTERVAL = 1000 / TARGET_HZ
 TARGET_INTERVAL = timedelta(milliseconds=INTERVAL) 
 # ==========================================
@@ -29,6 +29,7 @@ csv_filename = f"Dual_MPU6050_{time_string}.csv"
 
 seen_timestamps = set()
 last_saved_time = None  # 紀錄上一筆寫入 CSV 的確切時間
+last_calc_time = time.time() # [新增] 紀錄上次計算頻率的系統時間
 
 with open(csv_filename, mode='w', newline='') as file:
     writer = csv.writer(file)
@@ -79,7 +80,7 @@ with open(csv_filename, mode='w', newline='') as file:
                         if delta.days < 0:
                             delta += timedelta(days=1)
                         
-                        # 只要時間間隔大於等於 10 毫秒，就允許儲存 (達成精準 100Hz)
+                        # 只要時間間隔大於等於目標間隔，就允許儲存
                         if delta >= TARGET_INTERVAL:
                             should_save = True
 
@@ -112,8 +113,15 @@ with open(csv_filename, mode='w', newline='') as file:
                         size_str = f"{file_size_bytes / 1024:.2f} KB"
                     else:
                         size_str = f"{file_size_bytes / (1024 * 1024):.2f} MB"
-                        
-                    print(f"{latest_t_str} | 本次過濾寫入: {new_rows_count} 筆 | 檔案大小: {size_str}")
+                    
+                    # [新增] 計算實際頻率 (Hz)
+                    now = time.time()
+                    delta_sec = now - last_calc_time
+                    current_hz = new_rows_count / delta_sec if delta_sec > 0 else 0
+                    last_calc_time = now # 更新計算時間點
+                    
+                    # [修改] 將頻率加入 Print 輸出中
+                    print(f"{latest_t_str} | 本次過濾寫入: {new_rows_count:3} 筆 | 目前頻率: {current_hz:5.1f} Hz | 檔案大小: {size_str}")
                         
             # 縮短索取間隔，確保不漏接伺服器 Buffer 內的資料
             time.sleep(0.2)
