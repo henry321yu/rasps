@@ -11,7 +11,7 @@ DATA_URL = f"http://{SERVER_IP}:6969/data?client_id={CLIENT_ID}"
 
 TARGET_HZ = 100      # 目標紀錄頻率
 INTERVAL = 1000 / TARGET_HZ
-TARGET_INTERVAL = timedelta(milliseconds=INTERVAL) 
+TARGET_INTERVAL = timedelta(milliseconds=INTERVAL*0.95)  # 5% 網路抖動寬容值
 # ==========================================
 
 print("正在向 Server 配置 Logger 專屬設定...")
