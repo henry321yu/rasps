@@ -150,11 +150,8 @@ def send_camera():
         
         ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
         overlay = frame.copy()
-        # cv2.rectangle(overlay, (5, 3), (234, 25), (0, 0, 0), -1) 
-        # cv2.addWeighted(overlay, 0.4, frame, 0.6, 0, frame)
-        # cv2.putText(frame, ts, (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
-
-        cv2.rectangle(frame, (5, 3), (234, 25), (0, 0, 0), -1)
+        cv2.rectangle(overlay, (5, 3), (234, 25), (0, 0, 0), -1) 
+        cv2.addWeighted(overlay, 0.4, frame, 0.6, 0, frame)
         cv2.putText(frame, ts, (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
         
         resized = cv2.resize(frame, (960, 540))
