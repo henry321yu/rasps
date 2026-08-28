@@ -6,7 +6,7 @@ import platform
 import threading
 import smbus2
 from datetime import datetime
-import pyaudio  # [新增] 用於麥克風收音
+import subprocess # 新增 subprocess 來呼叫 FFmpeg
 
 # ========= ADXL355 設定 =========
 TEMP2, XDATA3, YDATA3, ZDATA3 = 0x06, 0x08, 0x0B, 0x0E
@@ -42,21 +42,20 @@ REMOTE_PC_LIST = [
 ADXL_PORT = 2870
 IMAGE_PORT = 2885
 PIXEL_PORT = 2886
-AUDIO_PORT = 2890  # [新增] 音訊傳輸 PORT
-CONTROL_PORT = 2895 # [新增] 接收伺服器控制指令 PORT
-
+AUDIO_PORT = 2890  
+CONTROL_PORT = 2895 
 sock_adxl = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock_img = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock_pixel = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock_audio = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # [新增]
-sock_control = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # [新增] 控制接收
+sock_audio = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  
+sock_control = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
 sock_control.bind(("0.0.0.0", CONTROL_PORT))
 
 # ========= 狀態變數 =========
 online_status = {ip: True for ip, _ in REMOTE_PC_LIST}
 avg20 = avg30 = avg40 = avg50 = 100
 adxl_sent = img_sent = pixel_sent = audio_sent = 0
-image_quality = 70 # [新增] 預設影像畫質
+image_quality = 70 
 
 def ping(ip):
     param = "-n" if platform.system().lower() == "windows" else "-c"
@@ -68,7 +67,6 @@ def ping_checker():
             online_status[ip] = ping(ip)
         time.sleep(5)
 
-# [新增] 監聽來自伺服器的設定變更指令
 def control_receiver():
     global image_quality
     while True:
@@ -97,36 +95,71 @@ def send_adxl355():
                 adxl_sent += 1
         time.sleep(0.0005)
 
-def send_camera():
-    global img_sent, pixel_sent, avg20, avg30, avg40, avg50, image_quality
-    cap = None
-    interval = 0.05
+# [新增] 全域變數，永遠存放最新的一張 RTSP 畫面
+latest_rtsp_frame = None
+
+# [新增] 獨立的 RTSP 讀取執行緒 (負責把緩衝區清空，模仿 USB WebCam 的行為)
+def rtsp_reader_thread():
+    global latest_rtsp_frame
+    
+    # 強制使用 TCP 傳輸，徹底解決 UDP 掉包導致的灰畫面/破圖
+    os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
+    
+    # 建議把 sub (子碼流) 放前面，降低 Pi 4B 的 H.264 解碼壓力
+    rtsp_urls = [
+        "rtsp://192.168.137.77:554/ch01_sub.264",
+        "rtsp://192.168.137.77:554/ch01.264"
+    ]
+    url_index = 0
+    
     while True:
-        if cap is None or not cap.isOpened():
-            cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+        cap = cv2.VideoCapture(rtsp_urls[url_index], cv2.CAP_FFMPEG)
+        # 嘗試將 OpenCV 緩衝區設為最小 (對部分版本有效)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        
+        if not cap.isOpened():
+            url_index = 1 - url_index
             time.sleep(2)
             continue
             
-        ret, frame = cap.read()
-        if not ret:
-            cap.release()
-            cap = None
+        while True:
+            # 這裡沒有任何 sleep，全速狂讀，確保拿到的 frame 永遠是即時的
+            ret, frame = cap.read() 
+            if not ret:
+                break # 讀取失敗(斷線)，跳出內迴圈重新連線
+                
+            latest_rtsp_frame = frame
+            
+        cap.release()
+        url_index = 1 - url_index
+        time.sleep(2)
+
+# [修改] 影像處理與發送執行緒 (只負責拿最新畫面處理並發送)
+def send_camera():
+    global img_sent, latest_rtsp_frame, image_quality
+    interval = 0.05
+    
+    while True:
+        # 如果還沒讀到畫面，稍等一下
+        if latest_rtsp_frame is None:
+            time.sleep(0.1)
             continue
             
+        # 複製最新的一張畫面來處理，完全不卡 RTSP 讀取的速度
+        frame = latest_rtsp_frame.copy()
+        
         ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
         overlay = frame.copy()
-        cv2.rectangle(overlay, (5, 3), (234, 25), (0, 0, 0), -1) # 黑塊長度 225給.00  232給.000
+        cv2.rectangle(overlay, (5, 3), (234, 25), (0, 0, 0), -1) 
         cv2.addWeighted(overlay, 0.4, frame, 0.6, 0, frame)
         cv2.putText(frame, ts, (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
         
-        resized = cv2.resize(frame, (0, 0), fx=1, fy=1)
+        resized = cv2.resize(frame, (640, 360))
         
-        # [修改] 使用全域變數 image_quality
         success, jpeg = cv2.imencode('.jpg', resized, [int(cv2.IMWRITE_JPEG_QUALITY), image_quality])
         
         if success:
             if len(jpeg) >= 60000:
-                # [修改] 低畫質為高畫質 - 20，並確保不小於 0
                 low_quality = max(0, image_quality - 20)
                 success, jpeg = cv2.imencode('.jpg', resized, [int(cv2.IMWRITE_JPEG_QUALITY), low_quality]) 
             
@@ -135,27 +168,43 @@ def send_camera():
                     if online_status[ip]:
                         sock_img.sendto(jpeg.tobytes(), (ip, IMAGE_PORT))
                         img_sent += 1
+                        
+        # 恢復你原本的設計：控制發送頻率，不用怕影響讀取端
         time.sleep(interval)
 
-# [修改] 具備熱插拔(斷線自動重連)功能的麥克風收音發送函數
+# [已修改] 從 RTSP 串流擷取音訊並發送
 def send_audio():
     global audio_sent
-    CHUNK = 2048  # 約 0.128 秒的音訊片段 (16000Hz)
-    FORMAT = pyaudio.paInt16
-    CHANNELS = 1
-    RATE = 16000
+    CHUNK = 2048  
+    
+    # 這裡填入有包含聲音的 RTSP 網址
+    rtsp_url = "rtsp://192.168.137.77:554/ch01.264" 
 
-    while True:  # 外層：無限重試連線迴圈
-        p = pyaudio.PyAudio()
-        stream = None
+    # FFmpeg 指令：提取 RTSP 音訊，並轉換為 16kHz, 單聲道, 16-bit PCM
+    command = [
+        'ffmpeg',
+        '-rtsp_transport', 'tcp',  # 強制使用 TCP 傳輸，避免 UDP 掉包導致音訊碎裂/爆音
+        '-i', rtsp_url,
+        '-vn',                     # 略過影像解碼 (Video None)，大幅節省 Pi 4B CPU 效能
+        '-acodec', 'pcm_s16le',    # 轉為 16-bit PCM (Little Endian)
+        '-ar', '16000',            # 取樣率 16000 Hz (對齊你前端的 AudioContext)
+        '-ac', '1',                # 單聲道
+        '-f', 's16le',             # 輸出為原始 raw data
+        '-'                        # 輸出至 stdout 讓 Python 讀取
+    ]
+
+    while True:
+        process = None
         try:
-            # 嘗試開啟麥克風，如果沒插麥克風這裡會報錯並跳到 except
-            stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
-            print("🎙️ 麥克風收音啟動成功 / 已重新連線！")
+            # 啟動 FFmpeg 子程序 (隱藏標準錯誤輸出，保持終端機乾淨)
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
             
-            while True:  # 內層：成功連線後的讀取與發送迴圈
-                # 當麥克風在運作途中被拔除時，read() 會拋出 OSError
-                data = stream.read(CHUNK, exception_on_overflow=False)
+            while True:
+                # 每次讀取 CHUNK 大小的音訊資料
+                data = process.stdout.read(CHUNK)
+                
+                if not data:
+                    break # 讀取不到資料代表串流中斷
                 
                 for ip, _ in REMOTE_PC_LIST:
                     if online_status[ip]:
@@ -163,21 +212,13 @@ def send_audio():
                         audio_sent += 1
                         
         except Exception as e:
-            # 捕捉到沒有麥克風或途中被拔除的錯誤
-            print(f"⚠️ 音訊設備未就緒或已拔除，2秒後重試... (原因: {e})")
-            
+            pass
         finally:
-            # 【重要】發生錯誤時，必須安全釋放資源，才能在下一次迴圈抓到重插的設備
-            if stream is not None:
-                try:
-                    stream.stop_stream()
-                    stream.close()
-                except:
-                    pass
-            p.terminate() 
-            
-        # 避免無麥克風時狂轉吃滿 CPU，休息 2 秒再重試
-        time.sleep(2)
+            if process:
+                process.kill()
+                process.wait() # 確保程序被完整釋放
+        
+        time.sleep(2) # 斷線後等待 2 秒重試
 
 def print_status():
     while True:
@@ -193,10 +234,14 @@ if __name__ == "__main__":
     time.sleep(10)
     setup_adxl355()
     threading.Thread(target=ping_checker, daemon=True).start()
-    threading.Thread(target=control_receiver, daemon=True).start() # [新增] 啟動控制接收執行緒
+    threading.Thread(target=control_receiver, daemon=True).start() 
     threading.Thread(target=send_adxl355, daemon=True).start()
+    
+    # [新增] 啟動背景 RTSP 讀取執行緒
+    threading.Thread(target=rtsp_reader_thread, daemon=True).start()
+
     threading.Thread(target=send_camera, daemon=True).start()
-    threading.Thread(target=send_audio, daemon=True).start() # [新增] 啟動音訊執行緒
+    threading.Thread(target=send_audio, daemon=True).start() 
     threading.Thread(target=print_status, daemon=True).start()
     
     print("🟢 系統啟動中... Ctrl+C 可中斷")
