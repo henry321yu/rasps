@@ -197,9 +197,11 @@ def send_camera():
                 '-f', 'rawvideo', '-vcodec', 'rawvideo', '-pix_fmt', 'bgr24',
                 '-s', '1920x1080', '-r', fps_val,
                 '-i', '-', 
-                '-c:v', 'libx264', '-preset', 'ultrafast', '-tune', 'zerolatency',
-                '-g', fps_val, '-keyint_min', fps_val, # 強制 I-frame 解決載入灰畫面
-                '-crf', crf_val, '-f', 'h264', '-'
+                '-c:v', 'h264_v4l2m2m', # 調用 Pi 4B 的硬體編碼器
+                '-b:v', '4M',           # 設定目標位元率 (2 Mbps 已經很清晰，可依網路狀況調整 1M~4M)
+                '-num_capture_buffers', '32', # 確保緩衝區足夠
+                '-g', fps_val, 
+                '-f', 'h264', '-'
             ]
             process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
             threading.Thread(target=broadcast_h264, args=(process,), daemon=True).start()
@@ -213,8 +215,7 @@ def send_camera():
         if not ret or frame is None:
             time.sleep(0.1)
             continue
-            
-        frame = cv2.resize(frame, (1920, 1080))    
+
         ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
         overlay = frame.copy()
         cv2.rectangle(overlay, (15, 9), (702, 75), (0, 0, 0), -1) 
