@@ -110,7 +110,7 @@ def rtsp_reader_thread():
         "rtsp://192.168.137.77:554/ch01_sub.264",
         "rtsp://192.168.137.77:554/ch01.264"
     ]
-    url_index = 0
+    url_index = 1
     
     while True:
         cap = cv2.VideoCapture(rtsp_urls[url_index], cv2.CAP_FFMPEG)
@@ -169,8 +169,7 @@ def send_camera():
         cv2.addWeighted(overlay, 0.4, frame, 0.6, 0, frame)
         cv2.putText(frame, ts, (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
         
-        # 維持你的 4K 縮放
-        resized = cv2.resize(frame, (3840, 2160))
+        resized = cv2.resize(frame, (1920, 1080))
         success, jpeg = cv2.imencode('.jpg', resized, [int(cv2.IMWRITE_JPEG_QUALITY), image_quality])
         
         if success:
