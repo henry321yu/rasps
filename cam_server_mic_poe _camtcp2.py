@@ -800,7 +800,7 @@ def index():
             }
             const finalStream = new MediaStream(combinedTracks);
 
-            const targetBitrate = 15000000; 
+            const targetBitrate = 80000000; 
             const typesToTry = [
                 'video/mp4;codecs=h264',   
                 'video/mp4;codecs=avc1',
