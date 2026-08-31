@@ -169,8 +169,7 @@ def send_camera():
         cv2.addWeighted(overlay, 0.4, frame, 0.6, 0, frame)
         cv2.putText(frame, ts, (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3, cv2.LINE_AA)
         
-        resized = cv2.resize(frame, (1920, 1080))
-        success, jpeg = cv2.imencode('.jpg', resized, [int(cv2.IMWRITE_JPEG_QUALITY), image_quality])
+        success, jpeg = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), image_quality])
         
         if success:
             jpeg_bytes = jpeg.tobytes()
