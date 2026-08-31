@@ -13,7 +13,7 @@ import itertools
 
 SERVER_RUN_ID = str(uuid.uuid4())
 
-CAMERA_TITLE = "Real-time Camera"
+CAMERA_TITLE = "Real-time Camera (H.264)"
 ADXL_TITLE = "Real-time Accelerometer"
 
 # ==================================================
@@ -42,26 +42,27 @@ MAX_IMAGE_QUALITY = 100
 PEAK_OFFSET_VALUE = 1.0
 
 # ==================================================
-# UDP 設定與 Data Buffers
+# TCP/UDP 設定與 Data Buffers
 # ==================================================
 ADXL_PORT = 2870
 IMAGE_PORT = 2885
 AUDIO_PORT = 2890
-CONTROL_PORT = 2895  # [新增] 控制指令 PORT 回傳給 Sender
+CONTROL_PORT = 2895  
 
 MAX_BUFFER_LEN = 300000 
 
 data_buf = deque(maxlen=MAX_BUFFER_LEN)
 global_packet_count = 0
-latest_frame = None
-latest_jpeg = None
-latest_sender_ip = None # [新增] 用來記錄 Sender 的 IP 以便回傳指令
+latest_sender_ip = None 
 
 audio_subscribers = []
 audio_lock = threading.Lock()
 
+h264_subscribers = []
+h264_lock = threading.Lock()
+
 # ==================================================
-# UDP Receivers
+# Data Receivers
 # ==================================================
 def adxl_receiver():
     global global_packet_count
@@ -84,47 +85,30 @@ def adxl_receiver():
         except Exception:
             pass
 
-# [新增] 獨立的 TCP 處理執行緒
 def camera_tcp_handler(conn, addr):
-    global latest_jpeg, latest_sender_ip
+    global latest_sender_ip
     latest_sender_ip = addr[0]
     conn.settimeout(5)
-    
-    # 確保讀取完整長度的輔助函式
-    def recvall(n):
-        data = bytearray()
-        while len(data) < n:
-            packet = conn.recv(n - len(data))
-            if not packet:
-                return None
-            data.extend(packet)
-        return bytes(data)
-
     try:
         while True:
-            # 1. 先讀 4 bytes 取得影像大小
-            length_bytes = recvall(4)
-            if not length_bytes:
+            data = conn.recv(16384)
+            if not data:
                 break
-            length = int.from_bytes(length_bytes, byteorder='big')
-
-            # 2. 根據大小讀取完整 JPEG 資料
-            jpeg_data = recvall(length)
-            if not jpeg_data:
-                break
-                
-            latest_jpeg = jpeg_data
+            with h264_lock:
+                for q in h264_subscribers:
+                    if q.qsize() < 100:
+                        q.put(data)
     except Exception:
         pass
     finally:
         conn.close()
 
-# [修改] 替換原本的 UDP 監聽為 TCP 監聽
 def camera_receiver():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(("0.0.0.0", IMAGE_PORT))
     sock.listen(5)
-    print(f"Listening Camera TCP {IMAGE_PORT}")
+    print(f"Listening Camera TCP H.264 {IMAGE_PORT}")
 
     while True:
         try:
@@ -210,7 +194,7 @@ def track_client_connect():
         if path.startswith('/set_'):
             clients_info[client_id]["last_command"] = full_command
             
-        elif path == '/camera':
+        elif path == '/camera_h264':
             clients_info[client_id]["streams"] += 1
 
 @app.teardown_request
@@ -218,7 +202,7 @@ def track_client_disconnect(exception=None):
     client_id = request.args.get('client_id', request.remote_addr)
     path = request.path
     
-    if path == '/camera':
+    if path == '/camera_h264':
         with clients_lock:
             if client_id in clients_info:
                 clients_info[client_id]["streams"] = max(0, clients_info[client_id]["streams"] - 1)
@@ -232,6 +216,15 @@ def set_interval():
         with clients_lock:
             if client_id in clients_info:
                 clients_info[client_id]["interval_sec"] = ms / 1000.0
+                
+        # [新增] 透過 UDP 傳送控制指令給 Sender，要求調整擷取 Rate
+        if latest_sender_ip:
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sock.sendto(f"RATE:{ms}".encode(), (latest_sender_ip, CONTROL_PORT))
+            except Exception as e:
+                pass
+                
         return jsonify({"status": "ok", "val": ms})
     except:
         return jsonify({"status": "error"}), 400
@@ -262,7 +255,6 @@ def set_display():
     except:
         return jsonify({"status": "error"}), 400
 
-# [新增] 設定畫質的 API
 @app.route("/set_quality")
 def set_quality():
     client_id = request.args.get('client_id', request.remote_addr)
@@ -273,7 +265,6 @@ def set_quality():
             if client_id in clients_info:
                 clients_info[client_id]["quality"] = val
         
-        # 透過 UDP 傳送控制指令給 Sender
         if latest_sender_ip:
             try:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -295,6 +286,7 @@ def index():
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sensor Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jmuxer@2.0.5/dist/jmuxer.min.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; }
         :root { --bg-color: #0f172a; --card-bg: #1e293b; --text-main: #f8fafc; --border-color: #334155; --accent: #38bdf8; --item-bg: #111827; }
@@ -351,13 +343,11 @@ def index():
                 </div>
             </div>
 
-            <!-- 音訊監聽開關與音量控制 -->
             <div class="control-item" style="border-color: #4ade80;">
                 <label><input type="checkbox" id="audioToggle"> 🔊 監聽音訊</label>
                 <input type="range" id="audioVolume" min="0" max="1" step="0.05" value="0.8" style="width: 80px;" title="調整監聽音量">
             </div>
 
-            <!-- [新增] 畫質控制拉桿 -->
             <div class="control-item">
                 <label>Quality</label>
                 <input type="range" id="qtySlider" min="MIN_QUALITY" max="SLIDER_MAX_QUALITY" step="1">
@@ -386,9 +376,9 @@ def index():
             <div class="panel-header">CAM_TITLE</div>
             <div class="panel-content" style="flex-direction: column; align-items: stretch; gap: 0.5rem;">
                 <div style="flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; width: 100%;">
-                    <img id="cameraImg" class="camera-img" alt="Live Camera Feed">
+                    <!-- 改為使用 video 標籤播放 H.264 -->
+                    <video id="cameraImg" class="camera-img" autoplay muted playsinline></video>
                 </div>
-                <!-- 音訊強度動態繪圖專屬區塊 -->
                 <div id="audioChartWrapper" class="chart-wrapper" style="display: none; flex: 0 0 160px;">
                     <canvas id="chartAudio"></canvas>
                 </div>
@@ -439,7 +429,7 @@ def index():
         
         const AUDIO_CHART_PTS = 300; 
         let chartAudio = createChart("chartAudio", "即時音訊強度 (dB)", "#a855f7", true);
-        let audioDbData = new Array(AUDIO_CHART_PTS).fill(-40); // 預設底線拉低
+        let audioDbData = new Array(AUDIO_CHART_PTS).fill(-40);
         chartAudio.data.labels = Array.from({length: AUDIO_CHART_PTS}, (_, i) => i);
         chartAudio.data.datasets[0].data = audioDbData;
         chartAudio.update();
@@ -467,11 +457,7 @@ def index():
                     }
 
                     if (needsCameraReset) {
-                        const camImg = document.getElementById("cameraImg");
-                        camImg.src = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
-                        setTimeout(() => {
-                            camImg.src = `/camera?client_id=${clientId}&t=` + new Date().getTime();
-                        }, 500);
+                        startCameraStream(); // 伺服器重啟時重新連線 H.264
                     }
 
                     chartVector.data.labels = d.t; chartVector.data.datasets[0].data = d.vector; chartVector.update();
@@ -502,7 +488,6 @@ def index():
             apply(defaultVal, 'init');
         }
 
-        // [新增] 綁定畫質控制拉桿
         setupControl('qtySlider', 'qtyNum', MIN_QUALITY, MAX_QUALITY, DEFAULT_QUALITY, '/set_quality', null);
         
         setupControl('rateSlider', 'rateNum', MIN_INTERVAL_MS, MAX_INTERVAL_MS, DEFAULT_INTERVAL_MS, '/set_interval', (newInterval) => {
@@ -512,11 +497,41 @@ def index():
         setupControl('avgSlider', 'avgNum', MIN_AVG_N, MAX_AVG_N, DEFAULT_AVG_N, '/set_average', null);
         setupControl('ptsSlider', 'ptsNum', MIN_DISP_PTS, MAX_DISP_PTS, DEFAULT_DISP_PTS, '/set_display', null);
 
+        // ==========================================
+        // JMuxer H.264 解碼與串流讀取
+        // ==========================================
         const camImg = document.getElementById("cameraImg");
-        camImg.src = `/camera?client_id=${clientId}`;
-        camImg.onerror = function() {
-            setTimeout(() => { camImg.src = `/camera?client_id=${clientId}&t=` + new Date().getTime(); }, 2000);
-        };
+        const jmuxer = new JMuxer({
+            node: 'cameraImg',
+            mode: 'video',
+            flushingTime: 0,
+            clearBuffer: true,
+            fps: 20,
+            debug: false
+        });
+
+        let cameraAbortController = null;
+        function startCameraStream() {
+            if (cameraAbortController) cameraAbortController.abort();
+            cameraAbortController = new AbortController();
+            
+            fetch(`/camera_h264?client_id=${clientId}`, { signal: cameraAbortController.signal })
+                .then(response => {
+                    const reader = response.body.getReader();
+                    function read() {
+                        reader.read().then(({done, value}) => {
+                            if (done) {
+                                setTimeout(startCameraStream, 2000); 
+                                return;
+                            }
+                            jmuxer.feed({ video: value });
+                            read();
+                        }).catch(e => setTimeout(startCameraStream, 2000));
+                    }
+                    read();
+                }).catch(e => setTimeout(startCameraStream, 2000));
+        }
+        startCameraStream();
 
         // ==========================================
         // 即時音訊核心 (Web Audio API)
@@ -611,7 +626,6 @@ def index():
             }
         }
 
-        // 音訊 UI 控制邏輯
         document.getElementById('audioToggle').addEventListener('change', async (e) => {
             const chartWrapper = document.getElementById('audioChartWrapper'); 
             await initAudioSystem();
@@ -662,7 +676,7 @@ def index():
 
 
         // ==========================================
-        // 畫面與資料混合錄製 (含音訊)
+        // 畫面與資料混合錄製 (相容 Video)
         // ==========================================
         const recordBtn = document.getElementById("recordBtn");
         const recordTimer = document.getElementById("recordTimer");
@@ -707,7 +721,7 @@ def index():
                 return;
             }
 
-            if (doCam && (!camImg.complete || camImg.naturalWidth === 0)) {
+            if (doCam && camImg.readyState === 0) {
                 alert("影像尚未載入完成，請稍後再試！");
                 return;
             }
@@ -723,7 +737,10 @@ def index():
             let chartBoxes = []; 
             const PADDING = 20;
 
-            if (doCam) { camW = camImg.naturalWidth; camH = camImg.naturalHeight; }
+            if (doCam) { 
+                camW = camImg.videoWidth || 1920; 
+                camH = camImg.videoHeight || 1080; 
+            }
             if (doChart) {
                 for(let cvs of chartCanvases) {
                     chartW = Math.max(chartW, cvs.width);
@@ -759,7 +776,7 @@ def index():
 
                     let startX = PADDING;
                     if (doCam) {
-                        if (camImg.naturalWidth > 0) hiddenCtx.drawImage(camImg, startX, camY, camW, camH);
+                        if (camImg.readyState >= 2) hiddenCtx.drawImage(camImg, startX, camY, camW, camH);
                         startX += camW + PADDING;
                     }
                     if (doChart) {
@@ -871,7 +888,6 @@ def index():
 """
     html = html.replace("CAM_TITLE", CAMERA_TITLE).replace("ADXL_TITLE", ADXL_TITLE)
     
-    # [新增] 替換畫質變數
     html = html.replace("DEFAULT_QUALITY", str(DEFAULT_IMAGE_QUALITY))
     html = html.replace("MIN_QUALITY", str(MIN_IMAGE_QUALITY))
     html = html.replace("SLIDER_MAX_QUALITY", str(SLIDER_MAX_IMAGE_QUALITY))
@@ -973,38 +989,26 @@ def data():
         })
 
 # --------------------------------------------------
-# MJPEG Camera Stream
+# H.264 Camera Stream API
 # --------------------------------------------------
-@app.route("/camera")
-def camera():
-    client_id = request.args.get('client_id', request.remote_addr)
-    
+@app.route("/camera_h264")
+def camera_h264():
+    q = queue.Queue(maxsize=100)
+    with h264_lock:
+        h264_subscribers.append(q)
+
     def generate():
-        last_send_time = 0
         try:
             while True:
-                with clients_lock:
-                    interval_sec = clients_info.get(client_id, {}).get("interval_sec", DEFAULT_UPDATE_INTERVAL_MS / 1000.0)
-                
-                current_time = time.time()
-                time_since_last = current_time - last_send_time
-                
-                if time_since_last >= interval_sec:
-                    if latest_jpeg is not None:
-                        yield (b"--frame\r\n" b"Content-Type:image/jpeg\r\n\r\n" + latest_jpeg + b"\r\n")
-                    last_send_time = time.time()
-                    continue 
-                
-                sleep_time = interval_sec - (time.time() - last_send_time)
-                if sleep_time > 0:
-                    time.sleep(min(sleep_time, 0.05))
-                    
+                yield q.get()
         except GeneratorExit:
-            pass 
-        except Exception:
             pass
+        finally:
+            with h264_lock:
+                if q in h264_subscribers:
+                    h264_subscribers.remove(q)
 
-    return Response(generate(), mimetype="multipart/x-mixed-replace; boundary=frame")
+    return Response(generate(), mimetype="application/octet-stream")
 
 # ==================================================
 # 音訊 HTTP 即時串流 (Binary PCM)
@@ -1040,7 +1044,7 @@ if __name__ == "__main__":
 
     print(f"""
 ======================================
- ADXL355 + Camera + Audio Web Monitor
+ ADXL355 + H.264 Camera + Audio Web
  Open: http://0.0.0.0:6969
  
  Server Started! Waiting for clients...
