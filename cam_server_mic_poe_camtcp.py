@@ -150,8 +150,13 @@ def audio_receiver():
             data, addr = sock.recvfrom(8192)
             with audio_lock:
                 for q in audio_subscribers:
-                    if q.qsize() < 100:
-                        q.put(data)
+                    # [修改] 如果 Queue 滿了，強制丟棄最舊的一包資料，確保即時性
+                    if q.full():
+                        try:
+                            q.get_nowait()
+                        except queue.Empty:
+                            pass
+                    q.put(data)
         except Exception:
             pass
 
@@ -595,9 +600,19 @@ def index():
                     source.connect(analyser);
 
                     let currentTime = audioCtx.currentTime;
-                    if (nextTime < currentTime + 0.1) {
+                    
+                    // [修改] 動態時間校正機制
+                    // 如果排程落後，給予 50ms 的基礎緩衝
+                    if (nextTime < currentTime + 0.05) {
+                        nextTime = currentTime + 0.05;
+                    } 
+                    // 如果排程已經跑到 0.3 秒以後，代表網路積壓產生了延遲
+                    // 毫不猶豫把排程拉回現實，丟棄多餘的時間差，與畫面強制同步
+                    else if (nextTime > currentTime + 0.3) {
+                        console.log("Audio latency detected, forcing sync...");
                         nextTime = currentTime + 0.1;
                     }
+
                     source.start(nextTime);
                     nextTime += audioBuffer.duration;
                 }
@@ -1018,7 +1033,8 @@ def camera():
 # ==================================================
 @app.route("/audio_raw")
 def audio_raw():
-    q = queue.Queue(maxsize=100) 
+    # [修改] 將 maxsize 從 100 降到 5 (約 300ms 的極小緩衝)，避免延遲堆積
+    q = queue.Queue(maxsize=5) 
     with audio_lock:
         audio_subscribers.append(q)
 
