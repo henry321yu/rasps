@@ -149,8 +149,6 @@ def get_img_socket(ip):
             return None
     return tcp_img_sockets[ip]
 
-# ... 中間保留 ...
-
 # [修改] 影像處理與發送執行緒 (改用 TCP 並移除 60KB 限制)
 def send_camera():
     global img_sent, latest_rtsp_frame, image_quality
@@ -163,11 +161,34 @@ def send_camera():
             
         frame = latest_rtsp_frame.copy()
         
+        # --- [修正區塊開始] ---
+        # 1. 取得當前畫面尺寸
+        h, w = frame.shape[:2]
+        
+        # 2. 以 1920 為基準，動態計算文字縮放比例與粗細
+        scale = w / 1920.0
+        font_scale = max(0.5, 1.5 * scale)  # 確保字體不會小於 0.5
+        thickness = max(1, int(3 * scale))  # 確保粗細至少為 1
+        
         ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+        
+        # 3. 自動計算文字需要的長寬，用來畫出精準的半透明黑框
+        (text_w, text_h), baseline = cv2.getTextSize(ts, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+        
+        # 4. 隨解析度動態調整文字的起始座標 (原為 30, 60)
+        start_x, start_y = int(30 * scale), max(int(60 * scale), text_h + 15)
+        
         overlay = frame.copy()
-        cv2.rectangle(overlay, (15, 9), (702, 75), (0, 0, 0), -1) 
+        
+        # 畫動態尺寸的黑框 (上下左右加上 15px 的 Padding)
+        cv2.rectangle(overlay, 
+                      (start_x - 15, start_y - text_h - 15), 
+                      (start_x + text_w + 15, start_y + baseline + 10), 
+                      (0, 0, 0), -1)
+                      
         cv2.addWeighted(overlay, 0.4, frame, 0.6, 0, frame)
-        cv2.putText(frame, ts, (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3, cv2.LINE_AA)
+        cv2.putText(frame, ts, (start_x, start_y), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
+        # --- [修正區塊結束] ---
         
         success, jpeg = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), image_quality])
         
