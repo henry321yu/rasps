@@ -5,11 +5,12 @@ import os
 from datetime import datetime, timedelta
 
 # ================= 設定區 =================
-SERVER_IP = "10.241.136.93"
+SERVER_IP = "127.0.0.1"
 CLIENT_ID = "data_logger"
 DATA_URL = f"http://{SERVER_IP}:6969/data?client_id={CLIENT_ID}"
 
 TARGET_HZ = 100      # 目標紀錄頻率
+FILE_ROTATION_SECONDS = 1 * 60  # 每 30 分鐘建立新 CSV
 INTERVAL = 1000 / TARGET_HZ
 TARGET_INTERVAL = timedelta(milliseconds=INTERVAL*0.92)  # 網路抖動寬容值
 # ==========================================
@@ -24,21 +25,46 @@ except Exception as e:
     print(f"⚠️ 無法配置 Server (可能尚未啟動)，將使用預設值。原因: {e}\n")
 
 
-time_string = datetime.now().strftime("%y%m%d%H%M%S")
-csv_filename = f"Dual_MPU6050_{time_string}.csv"
+os.makedirs("stepper", exist_ok=True)
+
+
+def open_csv_file():
+    # 微秒時間戳及獨佔建立模式，避免覆寫先前的紀錄。
+    while True:
+        time_string = datetime.now().strftime("%y%m%d%H%M%S")
+        filename = os.path.join("stepper", f"Dual_MPU6050_{time_string}.csv")
+        try:
+            output = open(filename, mode='x', newline='')
+            break
+        except FileExistsError:
+            continue
+    try:
+        csv_writer = csv.writer(output)
+        csv_writer.writerow(["time", "ax1", "ay1", "az1", "ax2", "ay2", "az2"])
+        output.flush()
+    except BaseException:
+        output.close()
+        raise
+    return filename, output, csv_writer
 
 seen_timestamps = set()
 last_saved_time = None  # 紀錄上一筆寫入 CSV 的確切時間
 last_calc_time = time.time() # [新增] 紀錄上次計算頻率的系統時間
 
-with open(csv_filename, mode='w', newline='') as file:
-    writer = csv.writer(file)
-    writer.writerow(["time", "ax1", "ay1", "az1", "ax2", "ay2", "az2"])
+csv_filename, file, writer = open_csv_file()
+next_rotation = time.monotonic() + FILE_ROTATION_SECONDS
+try:
     
     print(f"開始記錄數據至 {csv_filename} ... (目標頻率: {TARGET_HZ}Hz, 按 Ctrl+C 停止)\n")
     
     try:
         while True:
+            if time.monotonic() >= next_rotation:
+                file.close()
+                csv_filename, file, writer = open_csv_file()
+                next_rotation = time.monotonic() + FILE_ROTATION_SECONDS
+                print(f"已切換記錄檔案至 {csv_filename}")
+
             try:
                 response = requests.get(DATA_URL, timeout=3)
             except requests.exceptions.RequestException:
@@ -128,3 +154,5 @@ with open(csv_filename, mode='w', newline='') as file:
             
     except KeyboardInterrupt:
         print("\n記錄結束。")
+finally:
+    file.close()
