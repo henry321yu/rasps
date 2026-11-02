@@ -12,7 +12,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 
 
 def read_table(filename):
-    """Read a header-based CSV/TXT table with common encodings and delimiters."""
+    """Read CSV/TXT tables, including old recordings without a header."""
     with open(filename, "rb") as stream:
         raw = stream.read()
     # Check byte-order marks before trying a legacy encoding, which can decode
@@ -53,11 +53,19 @@ def read_table(filename):
         # Detect from the header even when some data cells are missing.
         header = next((line for line in text.splitlines() if line.strip()), "")
         delimiter = next((sep for sep in (",", "\t", ";", "|") if sep in header), None)
-    df = pd.read_csv(io.StringIO(text), sep=delimiter or r"\s+", engine="python")
-    df.columns = [str(column).strip() for column in df.columns]
+    read_options = dict(sep=delimiter or r"\s+", engine="python")
+    first = pd.read_csv(io.StringIO(text), header=None, nrows=1, dtype=str, **read_options)
+    first_values = first.iloc[0].fillna("").str.strip().tolist()
+    # A numeric/timestamp first cell indicates an old headerless recording.
+    has_header = parse_time_column(pd.Series([first_values[0]])) is None
+    df = pd.read_csv(io.StringIO(text), header=0 if has_header else None, **read_options)
+    df.columns = ([str(column).strip() for column in df.columns] if has_header
+                  else [f"Column {i + 1}" for i in range(len(df.columns))])
+    df.attrs.update(has_header=has_header,
+                    first_values=dict(zip(df.columns, first_values)))
     df = df.dropna(how="all").reset_index(drop=True)
     if df.empty or len(df.columns) < 2:
-        raise ValueError("檔案需要標題列、時間欄，以及至少一個數值欄位。")
+        raise ValueError("檔案需要至少一筆資料及兩個欄位。")
     return df
 
 
@@ -108,14 +116,24 @@ def prepare_data(filename):
             if named:
                 continue
             # Numeric sensor readings can resemble seconds. Prefer a steadily
-            # increasing, nearly uniform sequence when no time header is given.
+            # increasing sequence when no time header is given. Allow logger
+            # jitter rather than requiring perfectly uniform sampling.
             valid = seconds.dropna()
             steps = valid.diff().dropna()
-            if (len(valid) < 3 or not (steps > 0).all()
-                    or not np.allclose(steps, steps.median(), rtol=0.05, atol=1e-9)):
+            paired_clock = (not df.attrs["has_header"] and column == df.columns[0]
+                            and any(parse_time_column(df[other]) is not None
+                                    and parse_time_column(df[other])[1] != "seconds"
+                                    for other in df.columns[1:5]))
+            if len(valid) < 3:
+                if not paired_clock or valid.empty:
+                    continue
+            elif (not (steps >= 0).all() or (steps > 0).mean() < 0.95
+                  or steps.quantile(0.9) > steps.median() * 3):
                 continue
-        candidates[column] = {"values": seconds, "label": f"{column} ({kind})",
-                              "strings": strings}
+        display_name = (column if df.attrs["has_header"]
+                        else df.attrs["first_values"][column])
+        candidates[column] = {"values": seconds, "label": f"{display_name} ({kind})",
+                              "display_name": display_name, "strings": strings}
     numeric = {}
     for column in df.columns:
         values = pd.to_numeric(df[column], errors="coerce").replace([np.inf, -np.inf], np.nan)
@@ -148,7 +166,8 @@ def add_x_controls(parent, df, selected, callback):
     options = [None] + list(df.attrs["time_candidates"])
     variable = tk.IntVar(master=frame, value=options.index(selected))
     for index, column in enumerate(options):
-        label = "資料數（第 1 筆起）" if column is None else f"時間：{column}"
+        label = ("資料數（第 1 筆起）" if column is None
+                 else f"時間：{df.attrs['time_candidates'][column]['display_name']}")
         tk.Radiobutton(frame, text=label, variable=variable, value=index,
                        command=lambda col=column: callback(col)).grid(
                            row=index // 4, column=index % 4, sticky="w", padx=5)
