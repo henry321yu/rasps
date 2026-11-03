@@ -228,8 +228,9 @@ class SeismicViewerApp:
 
     def load_files(self):
         self.file_listbox.delete(0, tk.END)
-        self.files = sorted(entry.path for entry in os.scandir(self.data_dir)
-                            if entry.is_file() and os.path.splitext(entry.name)[1].lower() in (".csv", ".txt"))
+        self.files = sorted((entry.path for entry in os.scandir(self.data_dir)
+                             if entry.is_file() and os.path.splitext(entry.name)[1].lower() in (".csv", ".txt")),
+                            reverse=True)
         if not self.files:
             self.file_listbox.insert(tk.END, "No CSV/TXT files")
             return
